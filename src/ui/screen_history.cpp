@@ -1,0 +1,86 @@
+#include "ui/ui.h"
+#include "ui/ui_screens.h"
+#include "ui/theme.h"
+#include "config.h"
+#include "data/data_hub.h"
+#include <lvgl.h>
+
+static lv_obj_t *chart;
+static lv_chart_series_t *ser;
+static lv_obj_t *lbl_title;
+static lv_obj_t *lbl_month;
+
+static void on_back(lv_event_t *e) {
+	(void)e;
+	ui_show_well(DataHub::instance().selectedWell());
+}
+
+lv_obj_t *screen_history_create() {
+	lv_obj_t *scr = lv_obj_create(nullptr);
+	lv_obj_set_style_bg_color(scr, COL_BG, 0);
+	lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+	lv_obj_clear_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+	lbl_title = lv_label_create(scr);
+	lv_label_set_text(lbl_title, "Historico de caudal");
+	lv_obj_set_style_text_font(lbl_title, &lv_font_montserrat_16, 0);
+	lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
+	lv_obj_align(lbl_title, LV_ALIGN_TOP_LEFT, 10, 8);
+
+	lv_obj_t *sub = lv_label_create(scr);
+	lv_label_set_text_fmt(sub, "Ultimos %d dias  (m3/dia)", HIST_DAYS);
+	lv_obj_add_style(sub, &st_title, 0);
+	lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 10, 30);
+
+	chart = lv_chart_create(scr);
+	lv_obj_set_size(chart, 296, 118);
+	lv_obj_align(chart, LV_ALIGN_TOP_MID, 0, 46);
+	lv_chart_set_type(chart, LV_CHART_TYPE_BAR);
+	lv_chart_set_point_count(chart, HIST_DAYS);
+	lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, 1000);
+	lv_chart_set_div_line_count(chart, 4, 0);
+	lv_obj_set_style_bg_color(chart, COL_CARD, 0);
+	lv_obj_set_style_border_width(chart, 0, 0);
+	lv_obj_set_style_pad_all(chart, 4, 0);
+	ser = lv_chart_add_series(chart, COL_TEAL, LV_CHART_AXIS_PRIMARY_Y);
+
+	lv_obj_t *mtitle = lv_label_create(scr);
+	lv_label_set_text(mtitle, "ACUMULADO DEL MES");
+	lv_obj_add_style(mtitle, &st_title, 0);
+	lv_obj_align(mtitle, LV_ALIGN_TOP_LEFT, 10, 174);
+
+	lbl_month = lv_label_create(scr);
+	lv_label_set_text(lbl_month, "-- m3");
+	lv_obj_set_style_text_font(lbl_month, &lv_font_montserrat_28, 0);
+	lv_obj_set_style_text_color(lbl_month, COL_TEAL, 0);
+	lv_obj_align(lbl_month, LV_ALIGN_TOP_LEFT, 10, 188);
+
+	lv_obj_t *back = lv_btn_create(scr);
+	lv_obj_set_size(back, 90, 40);
+	lv_obj_align(back, LV_ALIGN_BOTTOM_RIGHT, -8, -6);
+	lv_obj_set_style_bg_color(back, COL_TEAL_D, 0);
+	lv_obj_add_event_cb(back, on_back, LV_EVENT_CLICKED, nullptr);
+	lv_obj_t *bl = lv_label_create(back);
+	lv_label_set_text(bl, LV_SYMBOL_LEFT " Volver");
+	lv_obj_center(bl);
+
+	return scr;
+}
+
+void screen_history_update() {
+	DataHub &hub = DataHub::instance();
+	const WellData &d = hub.data().well[hub.selectedWell()];
+
+	lv_label_set_text_fmt(lbl_title, "Historico  -  %s", d.name);
+
+	float mx = 1.0f;
+	for (int i = 0; i < HIST_DAYS; i++)
+		if (d.histDayM3[i] > mx) mx = d.histDayM3[i];
+	lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, (lv_coord_t)(mx * 1.15f));
+
+	for (int i = 0; i < HIST_DAYS; i++)
+		lv_chart_set_value_by_id(chart, ser, i, (lv_coord_t)d.histDayM3[i]);
+	lv_chart_refresh(chart);
+
+	lv_label_set_text_fmt(lbl_month, "%.0f m3", d.totalMonthM3);
+}
