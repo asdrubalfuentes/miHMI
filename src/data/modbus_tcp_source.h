@@ -46,6 +46,7 @@ private:
 	bool      ipOk_        = false;
 	bool      wifiStarted_ = false;
 	uint32_t  lastPoll_    = 0;
+	uint32_t  lastConnTry_ = 0;
 	uint32_t  lastOk_      = 0;
 
 	uint16_t  hr_[NUM_WELLS][14] = {};

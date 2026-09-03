@@ -35,6 +35,11 @@ void DataHub::enqueue(CmdType t, uint8_t well) {
 }
 
 void DataHub::tick() {
+	/* Sondear SIEMPRE ambas fuentes: si solo se sondea la activa, una primaria
+	 * caida nunca vuelve a conectar (deadlock de failover). */
+	if (primary_)                        primary_->poll();
+	if (backup_ && backup_ != primary_)  backup_->poll();
+
 	/* Seleccion de fuente activa con failover */
 	DataSource *want = nullptr;
 	if (primary_ && healthOf(primary_) != SrcHealth::Down)      want = primary_;
@@ -42,8 +47,6 @@ void DataHub::tick() {
 	else                                                        want = primary_ ? primary_ : backup_;
 	active_ = want;
 	if (!active_) return;
-
-	active_->poll();
 
 	/* Vaciar la cola de comandos contra la fuente activa */
 	while (qCount_) {

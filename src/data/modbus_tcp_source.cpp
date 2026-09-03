@@ -51,12 +51,14 @@ void ModbusTcpSource::poll() {
 		ipOk_ = WiFi.hostByName(PLC_HOST, plcIp_);
 		if (!ipOk_) return;
 	}
+	uint32_t now = millis();
 	if (!mb_.isConnected(plcIp_)) {
+		if (now - lastConnTry_ < 3000) return;   // connect() bloquea: no martillearlo
+		lastConnTry_ = now;
 		mb_.connect(plcIp_, PLC_PORT);
-		return;
+		return;                                  // lee en el proximo poll
 	}
 
-	uint32_t now = millis();
 	if (now - lastPoll_ < MB_POLL_MS) return;
 	lastPoll_ = now;
 	kickReads();
