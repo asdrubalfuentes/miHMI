@@ -9,6 +9,7 @@ static lv_obj_t *s_wells    = nullptr;
 static lv_obj_t *s_well     = nullptr;
 static lv_obj_t *s_history  = nullptr;
 static lv_obj_t *s_settings = nullptr;
+static lv_obj_t *s_scale    = nullptr;
 static lv_obj_t *s_help     = nullptr;
 
 void ui_init() {
@@ -18,6 +19,7 @@ void ui_init() {
 	s_well     = screen_well_create();
 	s_history  = screen_history_create();
 	s_settings = screen_settings_create();
+	s_scale    = screen_scale_create();
 	s_help     = screen_help_create();
 	s_splash   = screen_splash_create();
 
@@ -43,6 +45,11 @@ void ui_show_settings() {
 	lv_scr_load_anim(s_settings, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
 }
 
+void ui_show_scale() {
+	screen_scale_enter();
+	lv_scr_load_anim(s_scale, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
+}
+
 void ui_show_help() {
 	lv_scr_load_anim(s_help, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
 }
@@ -53,4 +60,5 @@ void ui_tick() {
 	else if (act == s_well)     screen_well_update();
 	else if (act == s_history)  screen_history_update();
 	else if (act == s_settings) screen_settings_update();
+	else if (act == s_scale)    screen_scale_update();
 }

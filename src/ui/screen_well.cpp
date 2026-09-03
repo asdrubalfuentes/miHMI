@@ -10,26 +10,22 @@
 
 /* ---- widgets refrescados por screen_well_update() ---- */
 static lv_obj_t *lbl_name;
-static lv_obj_t *lbl_mb, *lbl_lora, *lbl_net;
-static lv_obj_t *lbl_pump;
+static lv_obj_t *lbl_mb, *lbl_lora;
+static lv_obj_t *lbl_status;                 /* OK / ALARMA / SIN ENLACE */
 static lv_obj_t *arc_level, *lbl_level_pct, *lbl_level_m;
 static lv_obj_t *lbl_flow, *lbl_flow_m3h;
 static lv_obj_t *lbl_today;
+static lv_obj_t *lbl_alarms;
+static lv_obj_t *btn_siren_lbl;
 
 static uint8_t sel() { return DataHub::instance().selectedWell(); }
+static const WellData &cur() { return DataHub::instance().data().well[sel()]; }
 
 /* ------------------------- eventos ------------------------- */
-static void mb_start_cb(lv_event_t *e) {
+static void mb_silence_cb(lv_event_t *e) {
 	lv_obj_t *mb = lv_event_get_current_target(e);
 	if (lv_msgbox_get_active_btn(mb) == 0)
-		DataHub::instance().enqueue(CmdType::PumpStart, sel());
-	lv_msgbox_close(mb);
-}
-
-static void mb_stop_cb(lv_event_t *e) {
-	lv_obj_t *mb = lv_event_get_current_target(e);
-	if (lv_msgbox_get_active_btn(mb) == 0)
-		DataHub::instance().enqueue(CmdType::PumpStop, sel());
+		DataHub::instance().enqueue(CmdType::Silence, sel());
 	lv_msgbox_close(mb);
 }
 
@@ -40,18 +36,18 @@ static void confirm(const char *msg, lv_event_cb_t cb) {
 	lv_obj_add_event_cb(mb, cb, LV_EVENT_VALUE_CHANGED, nullptr);
 }
 
-static void on_start(lv_event_t *e) {
+static void on_silence(lv_event_t *e) {
 	(void)e;
 	static char m[64];
-	snprintf(m, sizeof(m), "Encender la bomba de %s?", DataHub::instance().data().well[sel()].name);
-	confirm(m, mb_start_cb);
+	snprintf(m, sizeof(m), "Silenciar la sirena de %s?", cur().name);
+	confirm(m, mb_silence_cb);
 }
 
-static void on_stop(lv_event_t *e) {
+static void on_siren_mode(lv_event_t *e) {
 	(void)e;
-	static char m[64];
-	snprintf(m, sizeof(m), "Detener la bomba de %s?", DataHub::instance().data().well[sel()].name);
-	confirm(m, mb_stop_cb);
+	/* alterna AUTO <-> MANUAL */
+	DataHub::instance().enqueue(cur().sirenAuto ? CmdType::SirenManual
+	                                            : CmdType::SirenAuto, sel());
 }
 
 static void on_prev(lv_event_t *e) {
@@ -101,7 +97,7 @@ static lv_obj_t *action_btn(lv_obj_t *parent, const char *txt, lv_color_t col,
 	lv_label_set_text(l, txt);
 	lv_obj_set_style_text_font(l, &lv_font_montserrat_16, 0);
 	lv_obj_center(l);
-	return b;
+	return l;
 }
 
 /* ------------------------- create ------------------------- */
@@ -128,7 +124,7 @@ lv_obj_t *screen_well_create() {
 	lv_obj_align(bprev, LV_ALIGN_CENTER, -66, 0);
 
 	lbl_name = lv_label_create(top);
-	lv_label_set_text(lbl_name, "Pozo");
+	lv_label_set_text(lbl_name, "Estacion");
 	lv_obj_set_style_text_font(lbl_name, &lv_font_montserrat_16, 0);
 	lv_obj_set_style_text_color(lbl_name, COL_TEXT, 0);
 	lv_obj_align(lbl_name, LV_ALIGN_CENTER, 0, 0);
@@ -141,12 +137,11 @@ lv_obj_t *screen_well_create() {
 
 	/* estado de fuentes de datos (fila fina bajo la barra) */
 	lbl_mb   = make_stat(scr, "MB",   8);
-	lbl_lora = make_stat(scr, "LoRa", 44);
-	lbl_net  = make_stat(scr, "NET",  96);
-	lbl_pump = lv_label_create(scr);
-	lv_label_set_text(lbl_pump, "PARO");
-	lv_obj_set_style_text_font(lbl_pump, &lv_font_montserrat_14, 0);
-	lv_obj_align(lbl_pump, LV_ALIGN_TOP_RIGHT, -10, 6);
+	lbl_lora = make_stat(scr, "sim",  44);
+	lbl_status = lv_label_create(scr);
+	lv_label_set_text(lbl_status, "--");
+	lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_14, 0);
+	lv_obj_align(lbl_status, LV_ALIGN_TOP_RIGHT, -10, 6);
 
 	/* --- nivel (arco) --- */
 	arc_level = lv_arc_create(scr);
@@ -176,7 +171,7 @@ lv_obj_t *screen_well_create() {
 	lv_obj_align_to(lbl_level_m, arc_level, LV_ALIGN_CENTER, 0, 20);
 
 	lv_obj_t *lvl_title = lv_label_create(scr);
-	lv_label_set_text(lvl_title, "NIVEL DE POZO");
+	lv_label_set_text(lvl_title, "NIVEL");
 	lv_obj_add_style(lvl_title, &st_title, 0);
 	lv_obj_align(lvl_title, LV_ALIGN_TOP_LEFT, 24, 174);
 
@@ -190,29 +185,38 @@ lv_obj_t *screen_well_create() {
 	lv_label_set_text(lbl_flow, "-- L/s");
 	lv_obj_set_style_text_font(lbl_flow, &lv_font_montserrat_28, 0);
 	lv_obj_set_style_text_color(lbl_flow, COL_TEXT, 0);
-	lv_obj_set_pos(lbl_flow, 156, 58);
+	lv_obj_set_pos(lbl_flow, 156, 56);
 
 	lbl_flow_m3h = lv_label_create(scr);
 	lv_label_set_text(lbl_flow_m3h, "-- m3/h");
 	lv_obj_set_style_text_font(lbl_flow_m3h, &lv_font_montserrat_14, 0);
 	lv_obj_set_style_text_color(lbl_flow_m3h, COL_MUTED, 0);
-	lv_obj_set_pos(lbl_flow_m3h, 156, 94);
+	lv_obj_set_pos(lbl_flow_m3h, 156, 90);
 
 	lv_obj_t *today_title = lv_label_create(scr);
 	lv_label_set_text(today_title, "ACUMULADO HOY");
 	lv_obj_add_style(today_title, &st_title, 0);
-	lv_obj_set_pos(today_title, 156, 124);
+	lv_obj_set_pos(today_title, 156, 114);
 
 	lbl_today = lv_label_create(scr);
 	lv_label_set_text(lbl_today, "-- m3");
 	lv_obj_set_style_text_font(lbl_today, &lv_font_montserrat_28, 0);
 	lv_obj_set_style_text_color(lbl_today, COL_TEAL, 0);
-	lv_obj_set_pos(lbl_today, 156, 140);
+	lv_obj_set_pos(lbl_today, 156, 128);
+
+	/* alarmas activas (linea que hace scroll) */
+	lbl_alarms = lv_label_create(scr);
+	lv_label_set_long_mode(lbl_alarms, LV_LABEL_LONG_SCROLL_CIRCULAR);
+	lv_obj_set_width(lbl_alarms, 150);
+	lv_label_set_text(lbl_alarms, "");
+	lv_obj_set_style_text_font(lbl_alarms, &lv_font_montserrat_12, 0);
+	lv_obj_set_style_text_color(lbl_alarms, COL_WARN, 0);
+	lv_obj_set_pos(lbl_alarms, 156, 160);
 
 	/* --- botonera inferior --- */
-	action_btn(scr, "ENCENDER", COL_RUN,  8,   96, on_start);
-	action_btn(scr, "DETENER",  COL_STOP, 112, 96, on_stop);
-	action_btn(scr, LV_SYMBOL_LIST " Histor.", COL_TEAL_D, 216, 96, on_hist);
+	action_btn(scr, "SILENCIAR", COL_WARN, 8, 100, on_silence);
+	btn_siren_lbl = action_btn(scr, "SIRENA AUTO", COL_TEAL_D, 112, 110, on_siren_mode);
+	action_btn(scr, LV_SYMBOL_LIST, COL_TEAL_D, 228, 84, on_hist);
 
 	return scr;
 }
@@ -220,6 +224,19 @@ lv_obj_t *screen_well_create() {
 /* ------------------------- update ------------------------- */
 static void set_health(lv_obj_t *l, SrcHealth h) {
 	lv_obj_set_style_text_color(l, ui_health_color((int)h), 0);
+}
+
+static const char *first_alarm(uint16_t bits) {
+	struct { uint16_t m; const char *n; } T[] = {
+		{MAPB_ALM_LEVEL_HI, "Nivel alto"}, {MAPB_ALM_LEVEL_LOLO, "Marcha en seco"},
+		{MAPB_ALM_LEVEL_LO, "Nivel bajo"}, {MAPB_ALM_NO_FLOW, "Sin caudal"},
+		{MAPB_ALM_PRESS_FAIL, "Falla presostato"}, {MAPB_ALM_VOLT_LOSS, "Sin voltaje"},
+		{MAPB_ALM_TAMPER, "Tapa abierta"}, {MAPB_ALM_LORA_LOSS, "Sin enlace LoRa"},
+		{MAPB_ALM_STALE, "Dato obsoleto"}, {MAPB_ALM_SCALE_BAD, "Escala invalida"},
+		{MAPB_ALM_OVERRANGE, "Sobre-rango"},
+	};
+	for (auto &e : T) if (bits & e.m) return e.n;
+	return "";
 }
 
 void screen_well_update() {
@@ -231,23 +248,25 @@ void screen_well_update() {
 
 	lv_arc_set_value(arc_level, (int)lroundf(d.levelPct));
 	lv_label_set_text_fmt(lbl_level_pct, "%d%%", (int)lroundf(d.levelPct));
-	lv_label_set_text_fmt(lbl_level_m, "%.1f m", d.levelM);
+	lv_label_set_text_fmt(lbl_level_m, "raw %u", d.levelRaw);
 	lv_label_set_text_fmt(lbl_flow, "%.1f L/s", d.flowLps);
 	lv_label_set_text_fmt(lbl_flow_m3h, "%.0f m3/h", d.flowM3h);
 	lv_label_set_text_fmt(lbl_today, "%.0f m3", d.totalDayM3);
 
-	if (d.pumpFault) {
-		lv_label_set_text(lbl_pump, "FALLO");
-		lv_obj_set_style_text_color(lbl_pump, COL_WARN, 0);
-	} else if (d.pumpRun) {
-		lv_label_set_text(lbl_pump, "MARCHA");
-		lv_obj_set_style_text_color(lbl_pump, COL_RUN, 0);
+	if (!d.linkOk) {
+		lv_label_set_text(lbl_status, "SIN ENLACE");
+		lv_obj_set_style_text_color(lbl_status, COL_STOP, 0);
+	} else if (d.inAlarm()) {
+		lv_label_set_text(lbl_status, d.sirenOn ? "ALARMA*" : "ALARMA");
+		lv_obj_set_style_text_color(lbl_status, COL_WARN, 0);
 	} else {
-		lv_label_set_text(lbl_pump, "PARO");
-		lv_obj_set_style_text_color(lbl_pump, COL_STOP, 0);
+		lv_label_set_text(lbl_status, "OK");
+		lv_obj_set_style_text_color(lbl_status, COL_RUN, 0);
 	}
+
+	lv_label_set_text(lbl_alarms, d.inAlarm() ? first_alarm(d.alarms) : "");
+	lv_label_set_text(btn_siren_lbl, d.sirenAuto ? "SIRENA AUTO" : "SIRENA MAN");
 
 	set_health(lbl_mb, hub.primaryHealth());
 	set_health(lbl_lora, hub.backupHealth());
-	lv_obj_set_style_text_color(lbl_net, hub.mqttUp() ? COL_RUN : COL_MUTED, 0);
 }

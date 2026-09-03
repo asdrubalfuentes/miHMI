@@ -1,43 +1,88 @@
 /**
  * plant_data.h  -  Modelo de datos compartido por la UI y las fuentes.
  *
- * El sistema gestiona NUM_WELLS pozos. Cada pozo tiene su propio WellData;
- * PlantData agrupa todos.
+ * El sistema gestiona NUM_WELLS estaciones de bombeo. Cada una tiene su
+ * WellData; PlantData agrupa todas + el estado global del PLC.
+ *
+ * Refleja el MAPA B del contrato ../../../ORCHESTRATION/REGISTER_MAP.md.
  */
 #pragma once
 #include <stdint.h>
 #include "config.h"
-
-enum class PumpMode : uint8_t { Manual = 0, Auto = 1 };
+#include "map_b.h"
 
 /* Salud de una fuente de datos */
 enum class SrcHealth : uint8_t { Ok, Stale, Down };
 
-/* Comandos que la UI encola hacia la fuente activa (dirigidos a un pozo) */
-enum class CmdType : uint8_t { PumpStart, PumpStop, SetModeAuto, SetModeManual };
+/* Comandos que la UI encola hacia la fuente activa (superficie del MAPA B) */
+enum class CmdType : uint8_t {
+	SirenOn,        /* coil cb+0 = 1  (solo en modo manual)          */
+	SirenOff,       /* coil cb+0 = 0                                  */
+	SirenAuto,      /* coil cb+1 = 1  (la controla la logica)        */
+	SirenManual,    /* coil cb+1 = 0                                  */
+	Silence,        /* coil cb+2 (pulso)                              */
+	ResetDay,       /* coil cb+3 (pulso, con armado cb+9)            */
+	ResetMonth,     /* coil cb+4 (pulso, con armado cb+9)            */
+};
 
 struct Command {
 	CmdType type;
-	uint8_t well;   /* indice de pozo 0..NUM_WELLS-1 */
+	uint8_t well;   /* indice de estacion 0..NUM_WELLS-1 */
 };
 
-/* Variables de un pozo */
+/* Parametros de escala de una variable (bloque hb+20..31 del MAPA B) */
+struct ScaleVar {
+	uint16_t rawMin = 800;
+	uint16_t rawMax = 4000;
+	int16_t  engMin = 0;      /* x100 */
+	int16_t  engMax = 10000;  /* x100 */
+	uint16_t unit   = 0;
+	uint16_t filter = 0;
+};
+
+struct StationScale {
+	ScaleVar level;
+	ScaleVar flow;
+	uint16_t stamp = 0;      /* hb+31: cambia cuando el PLC aplica */
+	bool     valid = false;  /* true tras una lectura correcta */
+};
+
+/* Variables de una estacion (subconjunto util del MAPA B) */
 struct WellData {
-	char  name[WELL_NAME_LEN] = "Pozo";
-	float levelPct      = 0.0f;   /* nivel 0..100 %              */
-	float levelM        = 0.0f;   /* nivel en metros             */
-	float flowLps       = 0.0f;   /* caudal instantaneo (L/s)    */
-	float flowM3h       = 0.0f;   /* caudal instantaneo (m3/h)   */
-	float totalDayM3    = 0.0f;   /* acumulado del dia (m3)      */
-	float totalMonthM3  = 0.0f;   /* acumulado del mes (m3)      */
-	float histDayM3[HIST_DAYS] = {0}; /* acumulado por dia, [0]=mas antiguo */
-	bool  pumpRun       = false;
-	bool  pumpFault     = false;
-	PumpMode mode       = PumpMode::Manual;
+	char  name[WELL_NAME_LEN] = "Estacion";
+
+	float levelPct      = 0.0f;   /* nivel escalado (unidad segun scale.level.unit) */
+	float levelEng      = 0.0f;   /* == levelPct; nombre neutro para unidades no-% */
+	float flowLps       = 0.0f;   /* caudal escalado                                */
+	float flowM3h       = 0.0f;
+	float totalDayM3    = 0.0f;
+	float totalMonthM3  = 0.0f;
+	float histDayM3[HIST_DAYS] = {0};
+
+	/* digitales (MAPA B: HR_STATUS / discrete inputs) */
+	bool  presostato    = false;
+	bool  voltLocal     = false;
+	bool  tamper        = false;
+	bool  sirenOn       = false;
+	bool  sirenAuto     = false;
+	bool  linkOk        = false;
+
+	uint16_t alarms     = 0;      /* hb+9 bitfield (MAPB_ALM_*) */
+	int16_t  rssi       = 0;
+	uint16_t ageS       = 0;
+	uint16_t levelRaw   = 0;      /* eco ADC, util en la pagina de rangos */
+	uint16_t flowRaw    = 0;
+
+	bool inAlarm() const { return alarms != 0; }
 };
 
-/* Snapshot de toda la planta */
+/* Snapshot de toda la planta + estado global (MAPA B IR 2000..2009) */
 struct PlantData {
 	WellData well[NUM_WELLS];
-	uint8_t  count = NUM_WELLS;
+	uint8_t  count       = NUM_WELLS;
+
+	uint16_t origin      = 0;     /* 0 = PLC-SIM, 1 = LOGO! real */
+	uint16_t heartbeat   = 0;
+	uint16_t contractVer = 0;
+	uint16_t alarmOr     = 0;
 };

@@ -3,8 +3,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
-// MAPA B del contrato de orquestacion. Solo lectura de datos + comandos de la
-// superficie congelada (sirena / silenciar / reset). Ver map_b.h.
+// MAPA B del contrato de orquestacion. Lectura de datos + comandos de la
+// superficie congelada (sirena / silenciar / reset) + bloque de escala. Ver map_b.h.
 
 bool ModbusTcpSource::wifiUp() const {
 	return WIFI_SSID[0] != 0 && WiFi.status() == WL_CONNECTED;
@@ -37,17 +37,15 @@ void ModbusTcpSource::service() {
 
 void ModbusTcpSource::poll() {
 	mb_.task();
-
 	if (!wifiUp()) return;
 
 	if (!ipOk_) {                          // PLC_HOST era un nombre, no una IP
 		ipOk_ = WiFi.hostByName(PLC_HOST, plcIp_);
 		if (!ipOk_) return;
 	}
-
 	if (!mb_.isConnected(plcIp_)) {
 		mb_.connect(plcIp_, PLC_PORT);
-		return;                            // reintenta en el proximo poll
+		return;
 	}
 
 	uint32_t now = millis();
@@ -76,26 +74,36 @@ void ModbusTcpSource::applyStation(uint8_t s) {
 	const uint16_t *r = hr_[s];
 	WellData &d = latest.well[s];
 
-	d.levelPct = r[MAPB_HR_LEVEL] / MB_LEVEL_SCALE;   // TODO Fase 5: usar unidad (+28)
-	d.levelM   = d.levelPct;
+	d.levelPct = d.levelEng = r[MAPB_HR_LEVEL] / MB_LEVEL_SCALE;
 	d.flowLps  = r[MAPB_HR_FLOW] / MB_FLOW_SCALE;
 	d.flowM3h  = d.flowLps * 3.6f;
+	d.levelRaw = r[MAPB_HR_LEVEL_RAW];
+	d.flowRaw  = r[MAPB_HR_FLOW_RAW];
 
 	d.totalDayM3   = mapb_u32(r[MAPB_HR_DAY_W0], r[MAPB_HR_DAY_W1]) / MB_ACCUM_SCALE;
 	d.totalMonthM3 = mapb_u32(r[MAPB_HR_MON_W0], r[MAPB_HR_MON_W1]) / MB_ACCUM_SCALE;
 
 	uint16_t st = r[MAPB_HR_STATUS];
-	d.pumpRun   = (st & MAPB_ST_PRESOSTATO) != 0;      // proxy: presostato (Fase 5 revisa el modelo)
-	d.pumpFault = (st & MAPB_ST_IN_ALARM) != 0;
-	d.mode      = PumpMode::Manual;
+	d.presostato = (st & MAPB_ST_PRESOSTATO) != 0;
+	d.voltLocal  = (st & MAPB_ST_VOLT_LOCAL) != 0;
+	d.tamper     = (st & MAPB_ST_TAMPER)     != 0;
+	d.sirenOn    = (st & MAPB_ST_SIREN_ON)   != 0;
+	d.sirenAuto  = (st & MAPB_ST_SIREN_AUTO) != 0;
+	d.linkOk     = (st & MAPB_ST_LINK_OK)    != 0;
+
+	d.alarms = r[MAPB_HR_ALARMS];
+	d.rssi   = (int16_t)r[MAPB_HR_RSSI];
+	d.ageS   = r[MAPB_HR_AGE];
 
 	lastOk_ = millis();
 }
 
 void ModbusTcpSource::applyGlobal() {
-	origin_    = ir_[MAPB_IR_G_ORIGIN    - MAPB_IR_G_MARK];
-	heartbeat_ = ir_[MAPB_IR_G_HEARTBEAT - MAPB_IR_G_MARK];
-	lastOk_    = millis();
+	latest.origin      = ir_[MAPB_IR_G_ORIGIN    - MAPB_IR_G_MARK];
+	latest.heartbeat   = ir_[MAPB_IR_G_HEARTBEAT - MAPB_IR_G_MARK];
+	latest.contractVer = ir_[MAPB_IR_G_CONTRACT  - MAPB_IR_G_MARK];
+	latest.alarmOr     = ir_[MAPB_IR_G_ALARM_OR  - MAPB_IR_G_MARK];
+	lastOk_ = millis();
 }
 
 bool ModbusTcpSource::isHealthy() const {
@@ -106,21 +114,71 @@ bool ModbusTcpSource::sendCommand(const Command &cmd) {
 	if (cmd.well >= NUM_WELLS || !wifiUp() || !ipOk_) return false;
 	uint16_t base = cmd.well * MAPB_CO_STRIDE;
 
-	// El unico actuador del Mapa B es la sirena; hasta la Fase 5 (que redefine
-	// CmdType a Silenciar/SirenaAuto/ResetDia/ResetMes) mapeamos lo que hay.
 	switch (cmd.type) {
-		case CmdType::PumpStart:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, true, nullptr, PLC_UNIT);
-			break;
-		case CmdType::PumpStop:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, false, nullptr, PLC_UNIT);
-			break;
-		case CmdType::SetModeAuto:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, true, nullptr, PLC_UNIT);
-			break;
-		case CmdType::SetModeManual:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, false, nullptr, PLC_UNIT);
-			break;
+		case CmdType::SirenOn:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, true, nullptr, PLC_UNIT);  break;
+		case CmdType::SirenOff:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, false, nullptr, PLC_UNIT); break;
+		case CmdType::SirenAuto:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, true, nullptr, PLC_UNIT);    break;
+		case CmdType::SirenManual:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, false, nullptr, PLC_UNIT);   break;
+		case CmdType::Silence:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SILENCE, true, nullptr, PLC_UNIT);       break;
+		case CmdType::ResetDay:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, PLC_UNIT);
+			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_DAY, true, nullptr, PLC_UNIT);     break;
+		case CmdType::ResetMonth:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, PLC_UNIT);
+			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_MONTH, true, nullptr, PLC_UNIT);   break;
 	}
+	return true;
+}
+
+// --- bloque de escala (hb+20..31) ---------------------------------------
+void ModbusTcpSource::requestScale(uint8_t s) {
+	if (s >= NUM_WELLS || !wifiUp() || !ipOk_ || !mb_.isConnected(plcIp_)) return;
+	mb_.readHreg(plcIp_, s * MAPB_HR_STRIDE + MAPB_HR_SCALE_BASE, scaleBuf_[s], 12,
+		[this, s](Modbus::ResultCode ev, uint16_t, void *) -> bool {
+			if (ev != Modbus::EX_SUCCESS) return true;
+			const uint16_t *v = scaleBuf_[s];
+			StationScale &sc = scale_[s];
+			sc.level.rawMin = v[0]; sc.level.rawMax = v[1];
+			sc.level.engMin = (int16_t)v[2]; sc.level.engMax = (int16_t)v[3];
+			sc.level.unit = v[8]; sc.level.filter = v[10];
+			sc.flow.rawMin = v[4]; sc.flow.rawMax = v[5];
+			sc.flow.engMin = (int16_t)v[6]; sc.flow.engMax = (int16_t)v[7];
+			sc.flow.unit = v[9]; sc.flow.filter = v[10];
+			sc.stamp = v[11];
+			sc.valid = true;
+			return true;
+		}, PLC_UNIT);
+}
+
+bool ModbusTcpSource::scaleValid(uint8_t s) const {
+	return s < NUM_WELLS && scale_[s].valid;
+}
+
+StationScale ModbusTcpSource::getScale(uint8_t s) const {
+	return (s < NUM_WELLS) ? scale_[s] : StationScale{};
+}
+
+bool ModbusTcpSource::applyScale(uint8_t s, const StationScale &sc) {
+	if (s >= NUM_WELLS || !wifiUp() || !ipOk_ || !mb_.isConnected(plcIp_)) return false;
+	wbuf_[0]  = sc.level.rawMin;  wbuf_[1]  = sc.level.rawMax;
+	wbuf_[2]  = (uint16_t)sc.level.engMin; wbuf_[3] = (uint16_t)sc.level.engMax;
+	wbuf_[4]  = sc.flow.rawMin;   wbuf_[5]  = sc.flow.rawMax;
+	wbuf_[6]  = (uint16_t)sc.flow.engMin;  wbuf_[7] = (uint16_t)sc.flow.engMax;
+	wbuf_[8]  = sc.level.unit;    wbuf_[9]  = sc.flow.unit;
+	wbuf_[10] = sc.level.filter;  wbuf_[11] = sc.stamp;   // el PLC reescribe el sello
+
+	uint16_t hbase = s * MAPB_HR_STRIDE + MAPB_HR_SCALE_BASE;
+	uint16_t cbase = s * MAPB_CO_STRIDE;
+	mb_.writeHreg(plcIp_, hbase, wbuf_, 12,
+		[this, s, cbase](Modbus::ResultCode ev, uint16_t, void *) -> bool {
+			if (ev == Modbus::EX_SUCCESS)
+				mb_.writeCoil(plcIp_, cbase + MAPB_CO_APPLY_SCALE, true, nullptr, PLC_UNIT);
+			return true;
+		}, PLC_UNIT);
 	return true;
 }

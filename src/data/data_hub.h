@@ -17,6 +17,9 @@ public:
 	void setPrimary(DataSource *s) { primary_ = s; }
 	void setBackup(DataSource *s)  { backup_  = s; }
 
+	/* Fuente primaria (para la pagina de rangos: la escala vive en el PLC). */
+	DataSource *primary() const { return primary_; }
+
 	/* Llamar cada APP_TICK_MS desde loop(). */
 	void tick();
 

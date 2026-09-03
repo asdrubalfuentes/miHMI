@@ -27,8 +27,12 @@ public:
 
 	/* Estado del enlace para diagnostico en la UI. */
 	bool     wifiUp() const;
-	uint16_t plcOrigin() const { return origin_; }   /* 0 = SIM, 1 = LOGO! real */
-	uint16_t heartbeat() const { return heartbeat_; }
+
+	/* --- Pagina de rangos de escala (bloque hb+20..31 del MAPA B) --- */
+	void         requestScale(uint8_t s) override;         // lectura bajo demanda
+	bool         scaleValid(uint8_t s) const override;
+	StationScale getScale(uint8_t s) const override;
+	bool         applyScale(uint8_t s, const StationScale &sc) override;  // escribe + pulsa cb+8
 
 private:
 	void kickReads();
@@ -42,8 +46,10 @@ private:
 	uint32_t  lastPoll_    = 0;
 	uint32_t  lastOk_      = 0;
 
-	uint16_t  hr_[NUM_WELLS][MAPB_HR_BLOCK_LEN] = {};
+	uint16_t  hr_[NUM_WELLS][14] = {};
 	uint16_t  ir_[10] = {};
-	uint16_t  origin_    = 0;
-	uint16_t  heartbeat_ = 0;
+
+	StationScale scale_[NUM_WELLS];
+	uint16_t     scaleBuf_[NUM_WELLS][12] = {};   // buffer de lectura async
+	uint16_t     wbuf_[12] = {};                  // buffer de escritura async
 };

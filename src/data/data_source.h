@@ -35,6 +35,13 @@ public:
 	/* Nombre corto para diagnostico ("Modbus", "LoRa", "Sim"). */
 	virtual const char *name() const = 0;
 
+	/* --- Bloque de escala del MAPA B (hb+20..31). Solo la fuente real lo
+	 * implementa; el resto son no-ops. --- */
+	virtual void         requestScale(uint8_t /*station*/) {}
+	virtual bool         scaleValid(uint8_t /*station*/) const { return false; }
+	virtual StationScale getScale(uint8_t /*station*/) const { return StationScale{}; }
+	virtual bool         applyScale(uint8_t /*station*/, const StationScale & /*sc*/) { return false; }
+
 	/* Ultimo snapshot leido. Lo rellena poll(). */
 	PlantData latest;
 };

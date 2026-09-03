@@ -34,10 +34,24 @@ responden, el HUD cae al simulado automáticamente.
 | `NUM_WELLS` | 2 estaciones |
 | `MAP_B_WORD_HI_FIRST` | orden de palabra de los 32 bits (contrato §2) |
 
-> Fase 5 moverá SSID/host a una pantalla de ajustes + NVS y redefinirá `CmdType`
-> a la superficie real del MAPA B (silenciar / sirena auto / reset acumulados).
-> Hoy `sendCommand` mapea los botones existentes a los coils de sirena como
-> provisional, y `pumpRun`≈presostato / `pumpFault`≈estación en alarma.
+### Pantallas
+
+- **Estaciones** (`screen_wells`): 2 tarjetas con margen superior (cabecera de
+  46 px con origen SIM/LOGO + latido + alarma global). Cada tarjeta: nivel,
+  caudal, presión/sirena/tapa, RSSI, estado (OK / ALARMA / SIN ENLACE).
+- **Detalle** (`screen_well`): arco de nivel, caudal, acumulado del día, primera
+  alarma activa; botones **SILENCIAR** y **SIRENA AUTO/MAN**.
+- **Rangos de escala** (`screen_scale`, desde *Ajustes*): edita el bloque
+  `hb+20..31` del MAPA B por estación y variable (cero/span crudo ↔ ingeniería,
+  unidad, filtro) con teclado numérico, y lo **APLICA** al PLC (escribe los
+  registros + pulsa el coil `cb+8`). La escala vive en el PLC; esto es el editor.
+
+`CmdType` = superficie real del MAPA B: `SirenOn/Off`, `SirenAuto/Manual`,
+`Silence`, `ResetDay`, `ResetMonth`. `WellData` refleja el MAPA B
+(presostato, voltaje local, tamper, sirena, `alarms` bitfield, enlace, RSSI…).
+
+> Pendiente: mover `WIFI_SSID` / `PLC_HOST` a una pantalla de ajustes + NVS
+> (hoy son `#define` en `config.h`).
 
 ## Compilar
 

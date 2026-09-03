@@ -8,9 +8,10 @@
 
 static lv_obj_t *lbl_counters;
 static lv_obj_t *lbl_active;
+static lv_obj_t *lbl_origin;
 
 static void on_back(lv_event_t *e) { (void)e; ui_show_wells(); }
-static void on_help(lv_event_t *e) { (void)e; ui_show_help(); }
+static void on_scale(lv_event_t *e) { (void)e; ui_show_scale(); }
 
 static void on_recal(lv_event_t *e) {
 	(void)e;
@@ -50,28 +51,27 @@ lv_obj_t *screen_settings_create() {
 	row(scr, "PLC (Modbus TCP)", buf, 34);
 	row(scr, "WiFi de planta", WIFI_SSID[0] ? WIFI_SSID : "sin configurar", 54);
 	row(scr, "Contrato de mapa", "v1 (Mapa B)", 74);
-	row(scr, "MQTT", FEATURE_MQTT ? "habilitado" : "deshabilitado", 94);
-
+	lbl_origin   = row(scr, "Origen / latido", "--", 94);
 	lbl_active   = row(scr, "Fuente activa", "--", 114);
 	lbl_counters = row(scr, "Tramas OK / ERR", "0 / 0", 134);
 
+	lv_obj_t *bscale = lv_btn_create(scr);
+	lv_obj_set_size(bscale, 175, 40);
+	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 12, 160);
+	lv_obj_set_style_bg_color(bscale, COL_TEAL, 0);
+	lv_obj_add_event_cb(bscale, on_scale, LV_EVENT_CLICKED, nullptr);
+	lv_obj_t *sl = lv_label_create(bscale);
+	lv_label_set_text(sl, "Rangos de escala");
+	lv_obj_center(sl);
+
 	lv_obj_t *brecal = lv_btn_create(scr);
-	lv_obj_set_size(brecal, 180, 40);
-	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 12, 160);
+	lv_obj_set_size(brecal, 115, 40);
+	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 194, 160);
 	lv_obj_set_style_bg_color(brecal, COL_ORANGE, 0);
 	lv_obj_add_event_cb(brecal, on_recal, LV_EVENT_CLICKED, nullptr);
 	lv_obj_t *rl = lv_label_create(brecal);
-	lv_label_set_text(rl, "Recalibrar pantalla");
+	lv_label_set_text(rl, "Recalibrar");
 	lv_obj_center(rl);
-
-	lv_obj_t *bhelp = lv_btn_create(scr);
-	lv_obj_set_size(bhelp, 110, 40);
-	lv_obj_align(bhelp, LV_ALIGN_TOP_LEFT, 200, 160);
-	lv_obj_set_style_bg_color(bhelp, COL_TEAL_D, 0);
-	lv_obj_add_event_cb(bhelp, on_help, LV_EVENT_CLICKED, nullptr);
-	lv_obj_t *hl = lv_label_create(bhelp);
-	lv_label_set_text(hl, LV_SYMBOL_LIST " Ayuda");
-	lv_obj_center(hl);
 
 	lv_obj_t *ver = lv_label_create(scr);
 	lv_label_set_text_fmt(ver, "%s  v%s", APP_NAME, APP_VERSION);
@@ -92,7 +92,10 @@ lv_obj_t *screen_settings_create() {
 
 void screen_settings_update() {
 	DataHub &hub = DataHub::instance();
+	const PlantData &p = hub.data();
 	lv_label_set_text(lbl_active, hub.activeSourceName());
 	lv_label_set_text_fmt(lbl_counters, "%lu / %lu",
 	                      (unsigned long)hub.txOk(), (unsigned long)hub.txErr());
+	lv_label_set_text_fmt(lbl_origin, "%s  ~ %u",
+	                      p.origin ? "LOGO! real" : "PLC-SIM", p.heartbeat);
 }

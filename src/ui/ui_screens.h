@@ -18,4 +18,8 @@ void      screen_history_update();
 lv_obj_t *screen_settings_create();
 void      screen_settings_update();
 
+lv_obj_t *screen_scale_create();
+void      screen_scale_update();
+void      screen_scale_enter();
+
 lv_obj_t *screen_help_create();
