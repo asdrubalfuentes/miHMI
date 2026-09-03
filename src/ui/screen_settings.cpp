@@ -5,18 +5,21 @@
 #include "data/data_hub.h"
 #include "hal/touch.h"
 #include <lvgl.h>
+#include <string.h>
 
-static lv_obj_t *lbl_counters;
-static lv_obj_t *lbl_active;
+static lv_obj_t *lbl_plc;       /* estado del enlace con el PLC (grande) */
+static lv_obj_t *lbl_ip;        /* IP del HMI */
+static lv_obj_t *lbl_wifi;      /* SSID + RSSI */
 static lv_obj_t *lbl_origin;
+static lv_obj_t *lbl_counters;
 
 static void on_back(lv_event_t *e) { (void)e; ui_show_wells(); }
 static void on_scale(lv_event_t *e) { (void)e; ui_show_scale(); }
 
 static void on_recal(lv_event_t *e) {
 	(void)e;
-	touch_force_calibrate();            /* dibuja directamente con TFT_eSPI */
-	lv_obj_invalidate(lv_scr_act());    /* forzar redibujado completo de LVGL */
+	touch_force_calibrate();
+	lv_obj_invalidate(lv_scr_act());
 }
 
 static lv_obj_t *row(lv_obj_t *parent, const char *k, const char *v, lv_coord_t y) {
@@ -30,7 +33,7 @@ static lv_obj_t *row(lv_obj_t *parent, const char *k, const char *v, lv_coord_t 
 	lv_label_set_text(lv, v);
 	lv_obj_set_style_text_font(lv, &lv_font_montserrat_14, 0);
 	lv_obj_set_style_text_color(lv, COL_TEXT, 0);
-	lv_obj_align(lv, LV_ALIGN_TOP_LEFT, 170, y);
+	lv_obj_align(lv, LV_ALIGN_TOP_LEFT, 150, y);
 	return lv;
 }
 
@@ -44,20 +47,30 @@ lv_obj_t *screen_settings_create() {
 	lv_label_set_text(title, "Ajustes / Diagnostico");
 	lv_obj_set_style_text_font(title, &lv_font_montserrat_16, 0);
 	lv_obj_set_style_text_color(title, COL_TEXT, 0);
-	lv_obj_align(title, LV_ALIGN_TOP_LEFT, 10, 8);
+	lv_obj_align(title, LV_ALIGN_TOP_LEFT, 10, 6);
 
-	char buf[40];
+	/* estado del enlace con el PLC: la respuesta a "estoy conectado?" */
+	lv_obj_t *k = lv_label_create(scr);
+	lv_label_set_text(k, "Enlace PLC");
+	lv_obj_set_style_text_font(k, &lv_font_montserrat_14, 0);
+	lv_obj_set_style_text_color(k, COL_MUTED, 0);
+	lv_obj_align(k, LV_ALIGN_TOP_LEFT, 12, 30);
+	lbl_plc = lv_label_create(scr);
+	lv_label_set_text(lbl_plc, "--");
+	lv_obj_set_style_text_font(lbl_plc, &lv_font_montserrat_16, 0);
+	lv_obj_align(lbl_plc, LV_ALIGN_TOP_LEFT, 110, 28);
+
+	char buf[48];
 	snprintf(buf, sizeof(buf), "%s:%d", PLC_HOST, PLC_PORT);
-	row(scr, "PLC (Modbus TCP)", buf, 34);
-	row(scr, "WiFi de planta", WIFI_SSID[0] ? WIFI_SSID : "sin configurar", 54);
-	row(scr, "Contrato de mapa", "v1 (Mapa B)", 74);
-	lbl_origin   = row(scr, "Origen / latido", "--", 94);
-	lbl_active   = row(scr, "Fuente activa", "--", 114);
+	row(scr, "PLC destino", buf, 54);
+	lbl_ip     = row(scr, "IP del HMI", "--", 74);
+	lbl_wifi   = row(scr, "WiFi", WIFI_SSID[0] ? WIFI_SSID : "sin configurar", 94);
+	lbl_origin = row(scr, "Origen / latido", "--", 114);
 	lbl_counters = row(scr, "Tramas OK / ERR", "0 / 0", 134);
 
 	lv_obj_t *bscale = lv_btn_create(scr);
 	lv_obj_set_size(bscale, 175, 40);
-	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 12, 160);
+	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 12, 158);
 	lv_obj_set_style_bg_color(bscale, COL_TEAL, 0);
 	lv_obj_add_event_cb(bscale, on_scale, LV_EVENT_CLICKED, nullptr);
 	lv_obj_t *sl = lv_label_create(bscale);
@@ -66,7 +79,7 @@ lv_obj_t *screen_settings_create() {
 
 	lv_obj_t *brecal = lv_btn_create(scr);
 	lv_obj_set_size(brecal, 115, 40);
-	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 194, 160);
+	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 194, 158);
 	lv_obj_set_style_bg_color(brecal, COL_ORANGE, 0);
 	lv_obj_add_event_cb(brecal, on_recal, LV_EVENT_CLICKED, nullptr);
 	lv_obj_t *rl = lv_label_create(brecal);
@@ -93,9 +106,23 @@ lv_obj_t *screen_settings_create() {
 void screen_settings_update() {
 	DataHub &hub = DataHub::instance();
 	const PlantData &p = hub.data();
-	lv_label_set_text(lbl_active, hub.activeSourceName());
-	lv_label_set_text_fmt(lbl_counters, "%lu / %lu",
-	                      (unsigned long)hub.txOk(), (unsigned long)hub.txErr());
+	DataSource *pri = hub.primary();
+
+	bool on_plc = pri && strcmp(hub.activeSourceName(), pri->name()) == 0;
+	SrcHealth h = hub.primaryHealth();
+
+	const char *txt; lv_color_t col;
+	if (on_plc && h == SrcHealth::Ok)        { txt = "CONECTADO";           col = COL_RUN;  }
+	else if (on_plc && h == SrcHealth::Stale){ txt = "INTERMITENTE";        col = COL_WARN; }
+	else                                     { txt = "SIN CONEXION (sim)";  col = COL_STOP; }
+	lv_label_set_text(lbl_plc, txt);
+	lv_obj_set_style_text_color(lbl_plc, col, 0);
+
+	lv_label_set_text_fmt(lbl_ip, "%s", pri ? pri->localIp().c_str() : "-");
+	lv_label_set_text_fmt(lbl_wifi, "%s  %d dBm",
+	                      WIFI_SSID[0] ? WIFI_SSID : "--", pri ? pri->linkRssi() : 0);
 	lv_label_set_text_fmt(lbl_origin, "%s  ~ %u",
 	                      p.origin ? "LOGO! real" : "PLC-SIM", p.heartbeat);
+	lv_label_set_text_fmt(lbl_counters, "%lu / %lu",
+	                      (unsigned long)hub.txOk(), (unsigned long)hub.txErr());
 }

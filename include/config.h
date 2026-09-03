@@ -9,7 +9,7 @@
 /* ============================ Branding ============================ */
 #define APP_NAME        "HMI Captacion de Pozos"
 #define APP_VERSION     "0.1.0"
-#define CLIENT_NAME     "Empresa Cliente"          /* TODO: logo real del cliente */
+#define CLIENT_NAME     "CMSG PSL"          /* TODO: logo real del cliente */
 #define PRODUCT_NAME    "AYSAFI  -  Ingenieria y Tecnologia"
 
 /* ============================ Pantalla =========================== */
@@ -70,9 +70,9 @@
 #define CONTRACT_VERSION     1
 #define MAP_B_WORD_HI_FIRST  1        /* 32b: palabra alta en la dir. menor (contrato Sec. 2) */
 
-#define WIFI_SSID            ""       /* red de planta; vacio = no conecta (queda la fuente de respaldo) */
-#define WIFI_PASS            ""
-#define PLC_HOST             "192.168.4.50"  /* IP del LOGO! 9 real o del PLC-SIM (modbusMaster) */
+#define WIFI_SSID            "AYSAFI"       /* red de planta; vacio = no conecta (queda la fuente de respaldo) */
+#define WIFI_PASS            "rFuentes_12665283"
+#define PLC_HOST             "192.168.1.26"  /* IP del LOGO! 9 real o del PLC-SIM (modbusMaster) */
 #define PLC_PORT             502
 #define PLC_UNIT             1        /* Unit ID (el servidor responde con cualquiera) */
 #define MB_POLL_MS           750      /* periodo de sondeo del Mapa B */

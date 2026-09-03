@@ -10,6 +10,14 @@ bool ModbusTcpSource::wifiUp() const {
 	return WIFI_SSID[0] != 0 && WiFi.status() == WL_CONNECTED;
 }
 
+String ModbusTcpSource::localIp() const {
+	return wifiUp() ? WiFi.localIP().toString() : String("sin WiFi");
+}
+
+int ModbusTcpSource::linkRssi() const {
+	return wifiUp() ? (int)WiFi.RSSI() : 0;
+}
+
 bool ModbusTcpSource::begin() {
 	for (uint8_t s = 0; s < NUM_WELLS; s++)
 		snprintf(latest.well[s].name, WELL_NAME_LEN, "Estacion %u", (unsigned)(s + 1));
@@ -137,7 +145,8 @@ bool ModbusTcpSource::sendCommand(const Command &cmd) {
 
 // --- bloque de escala (hb+20..31) ---------------------------------------
 void ModbusTcpSource::requestScale(uint8_t s) {
-	if (s >= NUM_WELLS || !wifiUp() || !ipOk_ || !mb_.isConnected(plcIp_)) return;
+	if (s >= NUM_WELLS || !wifiUp() || !ipOk_) return;
+	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, PLC_PORT);  // autoConnect completa la lectura
 	mb_.readHreg(plcIp_, s * MAPB_HR_STRIDE + MAPB_HR_SCALE_BASE, scaleBuf_[s], 12,
 		[this, s](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 			if (ev != Modbus::EX_SUCCESS) return true;
@@ -164,7 +173,9 @@ StationScale ModbusTcpSource::getScale(uint8_t s) const {
 }
 
 bool ModbusTcpSource::applyScale(uint8_t s, const StationScale &sc) {
-	if (s >= NUM_WELLS || !wifiUp() || !ipOk_ || !mb_.isConnected(plcIp_)) return false;
+	if (s >= NUM_WELLS || !wifiUp() || !ipOk_) return false;
+	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, PLC_PORT);
+
 	wbuf_[0]  = sc.level.rawMin;  wbuf_[1]  = sc.level.rawMax;
 	wbuf_[2]  = (uint16_t)sc.level.engMin; wbuf_[3] = (uint16_t)sc.level.engMax;
 	wbuf_[4]  = sc.flow.rawMin;   wbuf_[5]  = sc.flow.rawMax;

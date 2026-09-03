@@ -21,6 +21,8 @@ public:
 	bool isHealthy() const override;
 	uint32_t lastOkMs() const override { return lastOk_; }
 	const char *name() const override { return "PLC-TCP"; }
+	String localIp() const override;
+	int    linkRssi() const override;
 
 	/* Bombea la pila Modbus TCP; llamar frecuentemente desde loop(). */
 	void service();

@@ -35,6 +35,10 @@ public:
 	/* Nombre corto para diagnostico ("Modbus", "LoRa", "Sim"). */
 	virtual const char *name() const = 0;
 
+	/* Diagnostico de red (la fuente TCP los rellena; el resto por defecto). */
+	virtual String localIp() const { return String("-"); }
+	virtual int    linkRssi() const { return 0; }
+
 	/* --- Bloque de escala del MAPA B (hb+20..31). Solo la fuente real lo
 	 * implementa; el resto son no-ops. --- */
 	virtual void         requestScale(uint8_t /*station*/) {}

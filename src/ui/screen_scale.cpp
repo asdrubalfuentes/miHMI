@@ -22,6 +22,8 @@ static uint8_t      st_  = 0;      /* estacion */
 static uint8_t      var_ = 0;      /* 0 = nivel, 1 = caudal */
 static StationScale edit_;
 static bool         loaded_ = false;
+static uint32_t     enter_ms_ = 0;
+static uint32_t     last_req_ = 0;
 
 static lv_obj_t *lbl_title, *lbl_status;
 static lv_obj_t *ta_rmin, *ta_rmax, *ta_emin, *ta_emax, *ta_filt, *dd_unit;
@@ -279,7 +281,14 @@ void screen_scale_update() {
 			loaded_ = true;
 			refresh_fields();
 		} else {
-			lv_label_set_text(lbl_status, "leyendo...");
+			uint32_t now = millis();
+			if (now - last_req_ > 1500) {          // reintenta la lectura
+				last_req_ = now;
+				plc()->requestScale(st_);
+			}
+			lv_label_set_text(lbl_status,
+			                  (now - enter_ms_ > 6000) ? "sin datos del PLC (revisa Ajustes)"
+			                                           : "leyendo...");
 			return;
 		}
 	}
@@ -288,5 +297,6 @@ void screen_scale_update() {
 
 void screen_scale_enter() {
 	loaded_ = false;
+	enter_ms_ = last_req_ = millis();
 	if (plc()) plc()->requestScale(st_);
 }
