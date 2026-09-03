@@ -1,6 +1,6 @@
 /**
  * map_b.h  -  Offsets del MAPA B del contrato de orquestacion.
- *   ../../../ORCHESTRATION/REGISTER_MAP.md   (CONTRACT_VERSION 1)
+ *   ../../../ORCHESTRATION/REGISTER_MAP.md   (CONTRACT_VERSION 2)
  *
  * El HMI es CLIENTE Modbus TCP y lee este mapa del LOGO! 9 real o del PLC-SIM
  * (proyecto modbusMaster). Direcciones 0-based de protocolo.
@@ -90,18 +90,18 @@ enum {
     MAPB_ALM_OVERRANGE  = 1 << 10,
 };
 
-/* Bloque global - input registers (FC04) */
+/* Bloque global - Holding Registers (FC03), base 96  (v2: antes en IR 2000) */
 enum {
-    MAPB_IR_G_MARK        = 2000,    /* 0x0B01 */
-    MAPB_IR_G_NSTATIONS   = 2001,
-    MAPB_IR_G_ONLINE_BITS = 2002,
-    MAPB_IR_G_ALARM_OR    = 2003,
-    MAPB_IR_G_HEARTBEAT   = 2004,
-    MAPB_IR_G_UPTIME_W0   = 2005,
-    MAPB_IR_G_UPTIME_W1   = 2006,
-    MAPB_IR_G_ORIGIN      = 2007,    /* 0 = PLC-SIM, 1 = LOGO! real */
-    MAPB_IR_G_LOGIC_VER   = 2008,
-    MAPB_IR_G_CONTRACT    = 2009,
+    MAPB_G_MARK        = 96,     /* 0x0B01 */
+    MAPB_G_NSTATIONS   = 97,
+    MAPB_G_ONLINE_BITS = 98,
+    MAPB_G_ALARM_OR    = 99,
+    MAPB_G_HEARTBEAT   = 100,
+    MAPB_G_UPTIME_W0   = 101,
+    MAPB_G_UPTIME_W1   = 102,
+    MAPB_G_ORIGIN      = 103,    /* 0 = PLC-SIM, 1 = LOGO! real */
+    MAPB_G_LOGIC_VER   = 104,
+    MAPB_G_CONTRACT    = 105,
 };
 #define MAPB_MARK   0x0B01
 

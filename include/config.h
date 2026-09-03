@@ -67,7 +67,7 @@
 
 /* ====== Fase 2: enlace de campo por Modbus TCP (MAPA B del contrato) ======= */
 /* Contrato: ../ORCHESTRATION/REGISTER_MAP.md   ·   offsets en src/data/map_b.h */
-#define CONTRACT_VERSION     1
+#define CONTRACT_VERSION     2
 #define MAP_B_WORD_HI_FIRST  1        /* 32b: palabra alta en la dir. menor (contrato Sec. 2) */
 
 #define WIFI_SSID            "AYSAFI"       /* red de planta; vacio = no conecta (queda la fuente de respaldo) */

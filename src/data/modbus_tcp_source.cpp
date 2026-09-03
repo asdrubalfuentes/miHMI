@@ -72,7 +72,7 @@ void ModbusTcpSource::kickReads() {
 				return true;
 			}, PLC_UNIT);
 	}
-	mb_.readIreg(plcIp_, MAPB_IR_G_MARK, ir_, 10,
+	mb_.readHreg(plcIp_, MAPB_G_MARK, ir_, 10,   // v2: bloque global en Holding Registers
 		[this](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 			if (ev == Modbus::EX_SUCCESS) applyGlobal();
 			return true;
@@ -121,10 +121,10 @@ void ModbusTcpSource::applyStation(uint8_t s) {
 }
 
 void ModbusTcpSource::applyGlobal() {
-	latest.origin      = ir_[MAPB_IR_G_ORIGIN    - MAPB_IR_G_MARK];
-	latest.heartbeat   = ir_[MAPB_IR_G_HEARTBEAT - MAPB_IR_G_MARK];
-	latest.contractVer = ir_[MAPB_IR_G_CONTRACT  - MAPB_IR_G_MARK];
-	latest.alarmOr     = ir_[MAPB_IR_G_ALARM_OR  - MAPB_IR_G_MARK];
+	latest.origin      = ir_[MAPB_G_ORIGIN    - MAPB_G_MARK];
+	latest.heartbeat   = ir_[MAPB_G_HEARTBEAT - MAPB_G_MARK];
+	latest.contractVer = ir_[MAPB_G_CONTRACT  - MAPB_G_MARK];
+	latest.alarmOr     = ir_[MAPB_G_ALARM_OR  - MAPB_G_MARK];
 	lastOk_ = millis();
 }
 
