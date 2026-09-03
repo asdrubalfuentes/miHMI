@@ -19,10 +19,12 @@ bool MockSource::begin() {
 		}
 		d.totalMonthM3 = 5200.0f + w * 900.0f + random(0, 1200);
 		d.totalDayM3   = d.histDayM3[HIST_DAYS - 1];
-		d.levelPct = d.levelEng = 50.0f + w * 8.0f;
-		d.linkOk    = true;
-		d.voltLocal = true;
-		d.sirenAuto = true;
+		d.levelEng   = 50.0f + w * 8.0f;
+		d.levelUnit  = 0;   /* % */
+		d.flowUnit   = 0;   /* L/s */
+		d.linkOk     = true;
+		d.voltLocal  = true;
+		d.sirenAuto  = true;
 	}
 	latest.count       = NUM_WELLS;
 	latest.origin      = 0;      // SIM
@@ -47,33 +49,30 @@ void MockSource::poll() {
 
 		bool bombeando = d.presostato;
 		float drift = bombeando ? -6.0f : 0.0f;
-		d.levelPct = 55.0f + 18.0f * sinf(t / (22.0f + w * 4) + ph) + drift + (random(-100, 100) / 100.0f);
-		d.levelPct = constrain(d.levelPct, 0.0f, 100.0f);
-		d.levelEng = d.levelPct;
-		d.levelRaw = (uint16_t)(800 + d.levelPct * 32.0f);
+		d.levelEng = constrain(55.0f + 18.0f * sinf(t / (22.0f + w * 4) + ph) + drift
+		                       + (random(-100, 100) / 100.0f), 0.0f, 100.0f);
+		d.levelRaw = (uint16_t)(800 + d.levelEng * 32.0f);
 
 		float target = bombeando ? (38.0f + w * 5.0f) : 0.0f;
 		float k = constrain(dt * 0.6f, 0.0f, 1.0f);
-		d.flowLps += (target - d.flowLps) * k;
-		if (bombeando) d.flowLps += random(-40, 40) / 100.0f;
-		if (d.flowLps < 0.05f) d.flowLps = 0.0f;
-		d.flowM3h = d.flowLps * 3.6f;
-		d.flowRaw = (uint16_t)(800 + d.flowLps * 64.0f);
+		d.flowEng += (target - d.flowEng) * k;
+		if (bombeando) d.flowEng += random(-40, 40) / 100.0f;
+		if (d.flowEng < 0.05f) d.flowEng = 0.0f;
+		d.flowRaw = (uint16_t)(800 + d.flowEng * 64.0f);
 
-		float dV = d.flowLps * dt / 1000.0f;
+		float dV = d.flowEng * dt / 1000.0f;   /* L/s -> m3 */
 		d.totalDayM3   += dV;
 		d.totalMonthM3 += dV;
 		d.histDayM3[HIST_DAYS - 1] = d.totalDayM3;
 
-		// digitales de ejemplo: presostato sigue "bombeando", voltaje siempre ok
 		d.presostato = bombeando;
 		d.linkOk     = true;
 
 		// arbol de alarmas minimo
 		uint16_t a = 0;
-		if (d.levelPct >= 90.0f) a |= MAPB_ALM_LEVEL_HI;
-		if (d.levelPct <= 10.0f) a |= MAPB_ALM_LEVEL_LO;
-		if (d.levelPct <= 5.0f)  a |= MAPB_ALM_LEVEL_LOLO;
+		if (d.levelEng >= 90.0f) a |= MAPB_ALM_LEVEL_HI;
+		if (d.levelEng <= 10.0f) a |= MAPB_ALM_LEVEL_LO;
+		if (d.levelEng <= 5.0f)  a |= MAPB_ALM_LEVEL_LOLO;
 		if (d.tamper)            a |= MAPB_ALM_TAMPER;
 		if (!d.voltLocal)        a |= MAPB_ALM_VOLT_LOSS;
 		d.alarms = a;

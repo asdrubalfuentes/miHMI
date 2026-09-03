@@ -246,12 +246,19 @@ void screen_well_update() {
 	lv_label_set_text_fmt(lbl_name, "%s   (%u/%u)",
 	                      d.name, (unsigned)(hub.selectedWell() + 1), (unsigned)NUM_WELLS);
 
-	lv_arc_set_value(arc_level, (int)lroundf(d.levelPct));
-	lv_label_set_text_fmt(lbl_level_pct, "%d%%", (int)lroundf(d.levelPct));
-	lv_label_set_text_fmt(lbl_level_m, "raw %u", d.levelRaw);
-	lv_label_set_text_fmt(lbl_flow, "%.1f L/s", d.flowLps);
-	lv_label_set_text_fmt(lbl_flow_m3h, "%.0f m3/h", d.flowM3h);
-	lv_label_set_text_fmt(lbl_today, "%.0f m3", d.totalDayM3);
+	/* LVGL no formatea %f: usar snprintf de libc y set_text */
+	char b[28];
+	lv_arc_set_value(arc_level, (int)lroundf(d.levelEng));
+	snprintf(b, sizeof(b), "%d %s", (int)lroundf(d.levelEng), mapb_unit_level(d.levelUnit));
+	lv_label_set_text(lbl_level_pct, b);
+	snprintf(b, sizeof(b), "raw %u", d.levelRaw);
+	lv_label_set_text(lbl_level_m, b);
+	snprintf(b, sizeof(b), "%.1f %s", d.flowEng, mapb_unit_flow(d.flowUnit));
+	lv_label_set_text(lbl_flow, b);
+	snprintf(b, sizeof(b), "raw %u", d.flowRaw);
+	lv_label_set_text(lbl_flow_m3h, b);
+	snprintf(b, sizeof(b), "%.1f m3", d.totalDayM3);
+	lv_label_set_text(lbl_today, b);
 
 	if (!d.linkOk) {
 		lv_label_set_text(lbl_status, "SIN ENLACE");

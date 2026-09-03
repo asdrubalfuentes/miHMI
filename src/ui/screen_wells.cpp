@@ -144,8 +144,11 @@ void screen_wells_update() {
 		lv_label_set_text(lbl_state[i], txt);
 		lv_obj_set_style_text_color(lbl_state[i], col, 0);
 
-		lv_label_set_text_fmt(lbl_metrics[i], "Nivel %d %%   Caudal %.1f L/s",
-		                      (int)lroundf(d.levelPct), d.flowLps);
+		char m[40];   /* LVGL no formatea %f */
+		snprintf(m, sizeof(m), "Nivel %d %s   Caudal %.1f %s",
+		         (int)lroundf(d.levelEng), mapb_unit_level(d.levelUnit),
+		         d.flowEng, mapb_unit_flow(d.flowUnit));
+		lv_label_set_text(lbl_metrics[i], m);
 
 		lv_label_set_text_fmt(lbl_flags[i], "%s  %s  %s  RSSI %d",
 		                      d.presostato ? "presion" : "sin presion",

@@ -51,13 +51,13 @@ struct StationScale {
 struct WellData {
 	char  name[WELL_NAME_LEN] = "Estacion";
 
-	float levelPct      = 0.0f;   /* nivel escalado (unidad segun scale.level.unit) */
-	float levelEng      = 0.0f;   /* == levelPct; nombre neutro para unidades no-% */
-	float flowLps       = 0.0f;   /* caudal escalado                                */
-	float flowM3h       = 0.0f;
+	float levelEng      = 0.0f;   /* nivel escalado, en la unidad de levelUnit      */
+	float flowEng       = 0.0f;   /* caudal escalado, en la unidad de flowUnit      */
 	float totalDayM3    = 0.0f;
 	float totalMonthM3  = 0.0f;
 	float histDayM3[HIST_DAYS] = {0};
+	uint8_t levelUnit   = 0;      /* codigo MAPA B hb+28 (0=%,1=m,2=cm,3=mca)       */
+	uint8_t flowUnit    = 0;      /* codigo MAPA B hb+29 (0=L/s,1=m3/h,2=L/min,3=GPM)*/
 
 	/* digitales (MAPA B: HR_STATUS / discrete inputs) */
 	bool  presostato    = false;

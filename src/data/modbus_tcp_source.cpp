@@ -66,7 +66,7 @@ void ModbusTcpSource::poll() {
 
 void ModbusTcpSource::kickReads() {
 	for (uint8_t s = 0; s < NUM_WELLS; s++) {
-		mb_.readHreg(plcIp_, s * MAPB_HR_STRIDE, hr_[s], 14,
+		mb_.readHreg(plcIp_, s * MAPB_HR_STRIDE, hr_[s], MAPB_HR_BLOCK_LEN,
 			[this, s](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 				if (ev == Modbus::EX_SUCCESS) applyStation(s);
 				return true;
@@ -84,11 +84,23 @@ void ModbusTcpSource::applyStation(uint8_t s) {
 	const uint16_t *r = hr_[s];
 	WellData &d = latest.well[s];
 
-	d.levelPct = d.levelEng = r[MAPB_HR_LEVEL] / MB_LEVEL_SCALE;
-	d.flowLps  = r[MAPB_HR_FLOW] / MB_FLOW_SCALE;
-	d.flowM3h  = d.flowLps * 3.6f;
-	d.levelRaw = r[MAPB_HR_LEVEL_RAW];
-	d.flowRaw  = r[MAPB_HR_FLOW_RAW];
+	d.levelEng  = r[MAPB_HR_LEVEL] / MB_LEVEL_SCALE;
+	d.flowEng   = r[MAPB_HR_FLOW]  / MB_FLOW_SCALE;
+	d.levelRaw  = r[MAPB_HR_LEVEL_RAW];
+	d.flowRaw   = r[MAPB_HR_FLOW_RAW];
+	d.levelUnit = (uint8_t)r[MAPB_HR_UNIT_LEVEL];
+	d.flowUnit  = (uint8_t)r[MAPB_HR_UNIT_FLOW];
+
+	/* el bloque completo trae hb+20..31: mantener scale_[s] siempre fresco */
+	StationScale &sc = scale_[s];
+	sc.level.rawMin = r[MAPB_HR_LVL_RAWMIN]; sc.level.rawMax = r[MAPB_HR_LVL_RAWMAX];
+	sc.level.engMin = (int16_t)r[MAPB_HR_LVL_ENGMIN]; sc.level.engMax = (int16_t)r[MAPB_HR_LVL_ENGMAX];
+	sc.level.unit = r[MAPB_HR_UNIT_LEVEL]; sc.level.filter = r[MAPB_HR_FILTER];
+	sc.flow.rawMin = r[MAPB_HR_FLW_RAWMIN]; sc.flow.rawMax = r[MAPB_HR_FLW_RAWMAX];
+	sc.flow.engMin = (int16_t)r[MAPB_HR_FLW_ENGMIN]; sc.flow.engMax = (int16_t)r[MAPB_HR_FLW_ENGMAX];
+	sc.flow.unit = r[MAPB_HR_UNIT_FLOW]; sc.flow.filter = r[MAPB_HR_FILTER];
+	sc.stamp = r[MAPB_HR_CFG_STAMP];
+	sc.valid = true;
 
 	d.totalDayM3   = mapb_u32(r[MAPB_HR_DAY_W0], r[MAPB_HR_DAY_W1]) / MB_ACCUM_SCALE;
 	d.totalMonthM3 = mapb_u32(r[MAPB_HR_MON_W0], r[MAPB_HR_MON_W1]) / MB_ACCUM_SCALE;

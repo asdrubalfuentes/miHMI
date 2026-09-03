@@ -4,6 +4,7 @@
 #include "config.h"
 #include "data/data_hub.h"
 #include <lvgl.h>
+#include <stdio.h>
 
 static lv_obj_t *chart;
 static lv_chart_series_t *ser;
@@ -82,5 +83,7 @@ void screen_history_update() {
 		lv_chart_set_value_by_id(chart, ser, i, (lv_coord_t)d.histDayM3[i]);
 	lv_chart_refresh(chart);
 
-	lv_label_set_text_fmt(lbl_month, "%.0f m3", d.totalMonthM3);
+	char b[24];
+	snprintf(b, sizeof(b), "%.1f m3", d.totalMonthM3);
+	lv_label_set_text(lbl_month, b);
 }

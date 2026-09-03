@@ -49,7 +49,7 @@ private:
 	uint32_t  lastConnTry_ = 0;
 	uint32_t  lastOk_      = 0;
 
-	uint16_t  hr_[NUM_WELLS][14] = {};
+	uint16_t  hr_[NUM_WELLS][MAPB_HR_BLOCK_LEN] = {};   // bloque completo de estacion
 	uint16_t  ir_[10] = {};
 
 	StationScale scale_[NUM_WELLS];

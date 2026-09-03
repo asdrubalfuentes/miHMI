@@ -85,14 +85,20 @@ static void on_read(lv_event_t *e) {
 	if (plc()) plc()->requestScale(st_);
 }
 
+static void mb_close_cb(lv_event_t *e) {
+	lv_msgbox_close(lv_event_get_current_target(e));
+}
+
 static void on_apply(lv_event_t *e) {
 	(void)e;
+	lv_obj_add_flag(kb, LV_OBJ_FLAG_HIDDEN);   // por si el teclado esta arriba
 	commit_fields();
 	bool ok = plc() && plc()->applyScale(st_, edit_);
 	static const char *btns[] = {"OK", ""};
 	lv_obj_t *mb = lv_msgbox_create(nullptr, "Rangos",
 		ok ? "Enviado al PLC. Verifica el sello."
 		   : "No hay enlace con el PLC.", btns, false);
+	lv_obj_add_event_cb(mb, mb_close_cb, LV_EVENT_VALUE_CHANGED, nullptr);
 	lv_obj_center(mb);
 	if (plc()) plc()->requestScale(st_);
 }

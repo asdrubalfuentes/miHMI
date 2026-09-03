@@ -105,6 +105,16 @@ enum {
 };
 #define MAPB_MARK   0x0B01
 
+/* Etiqueta de unidad segun el codigo del MAPA B (hb+28 nivel, hb+29 caudal). */
+static inline const char *mapb_unit_level(uint16_t u) {
+    static const char *N[] = {"%", "m", "cm", "mca"};
+    return u < 4 ? N[u] : "?";
+}
+static inline const char *mapb_unit_flow(uint16_t u) {
+    static const char *N[] = {"L/s", "m3/h", "L/min", "GPM"};
+    return u < 4 ? N[u] : "?";
+}
+
 /* Une dos palabras de 16 bits segun el orden del contrato (Seccion 2). */
 static inline uint32_t mapb_u32(uint16_t w0, uint16_t w1) {
 #if MAP_B_WORD_HI_FIRST
