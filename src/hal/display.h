@@ -17,5 +17,6 @@ TFT_eSPI &display_tft();
 /* Brillo del backlight 0..100 %. */
 void display_backlight_pct(uint8_t pct);
 
-/* Ajuste automatico de brillo a partir del LDR (llamar en app tick). */
-void display_backlight_auto();
+/* Inversion de color del panel (algunos ILI9341 de la CYD la necesitan y otros no). */
+void display_set_invert(bool on);
+bool display_invert();

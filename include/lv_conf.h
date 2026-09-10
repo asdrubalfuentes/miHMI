@@ -22,7 +22,7 @@
  *  Memoria
  *--------------------------*/
 #define LV_MEM_CUSTOM 0
-#define LV_MEM_SIZE (48U * 1024U)
+#define LV_MEM_SIZE (48U * 1024U)   /* las pantallas se crean bajo demanda, ver ui.cpp */
 
 /*---------------------------
  *  HAL / tick

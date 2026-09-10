@@ -1,4 +1,5 @@
 #include "mock_source.h"
+#include "hmi_config.h"
 #include <Arduino.h>
 #include <math.h>
 #include <stdio.h>
@@ -11,7 +12,7 @@ bool MockSource::begin() {
 
 	for (uint8_t w = 0; w < NUM_WELLS; w++) {
 		WellData &d = latest.well[w];
-		snprintf(d.name, WELL_NAME_LEN, "Estacion %u", (unsigned)(w + 1));
+		snprintf(d.name, WELL_NAME_LEN, "%s", hmicfg::get().stationName[w]);
 
 		for (int i = 0; i < HIST_DAYS; i++) {
 			d.histDayM3[i] = 240.0f + i * 20.0f + w * 60.0f + (random(0, 120) - 60);
@@ -76,6 +77,7 @@ void MockSource::poll() {
 		if (d.tamper)            a |= MAPB_ALM_TAMPER;
 		if (!d.voltLocal)        a |= MAPB_ALM_VOLT_LOSS;
 		d.alarms = a;
+		d.alarmsLatched |= a & (MAPB_ALM_LEVEL_LOLO | MAPB_ALM_TAMPER);  /* mismo mask que el PLC */
 		alarmOr |= a;
 
 		// sirena
@@ -97,6 +99,7 @@ bool MockSource::sendCommand(const Command &cmd) {
 		case CmdType::Silence:     d.sirenOn = false;   break;
 		case CmdType::ResetDay:    d.totalDayM3 = 0.0f;   break;
 		case CmdType::ResetMonth:  d.totalMonthM3 = 0.0f; break;
+		case CmdType::AckAlarms:   d.alarmsLatched &= d.alarms; break;  /* deja solo las activas */
 	}
 	lastOk_ = millis();
 	return true;

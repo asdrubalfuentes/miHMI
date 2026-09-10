@@ -23,6 +23,7 @@ enum class CmdType : uint8_t {
 	Silence,        /* coil cb+2 (pulso)                              */
 	ResetDay,       /* coil cb+3 (pulso, con armado cb+9)            */
 	ResetMonth,     /* coil cb+4 (pulso, con armado cb+9)            */
+	AckAlarms,      /* coil cb+5 (pulso): reconocer/limpiar hb+14    */
 };
 
 struct Command {
@@ -67,13 +68,15 @@ struct WellData {
 	bool  sirenAuto     = false;
 	bool  linkOk        = false;
 
-	uint16_t alarms     = 0;      /* hb+9 bitfield (MAPB_ALM_*) */
+	uint16_t alarms       = 0;    /* hb+9  bitfield (MAPB_ALM_*) — activas ahora */
+	uint16_t alarmsLatched = 0;   /* hb+14 bitfield — latcheadas / sin reconocer */
 	int16_t  rssi       = 0;
 	uint16_t ageS       = 0;
 	uint16_t levelRaw   = 0;      /* eco ADC, util en la pagina de rangos */
 	uint16_t flowRaw    = 0;
 
-	bool inAlarm() const { return alarms != 0; }
+	bool inAlarm()    const { return alarms != 0; }
+	bool hasLatched() const { return alarmsLatched != 0; }
 };
 
 /* Snapshot de toda la planta + estado global (MAPA B IR 2000..2009) */

@@ -1,13 +1,21 @@
 #include "modbus_tcp_source.h"
 #include "config.h"
+#include "hmi_config.h"
 #include <Arduino.h>
 #include <WiFi.h>
 
 // MAPA B del contrato de orquestacion. Lectura de datos + comandos de la
 // superficie congelada (sirena / silenciar / reset) + bloque de escala. Ver map_b.h.
+// El destino (WiFi de planta, IP/puerto/unit del PLC, periodo de sondeo) sale de
+// hmicfg (microSD / NVS / defaults), no de los #define.
+
+static void cpy(char *d, const char *s, size_t n) {
+	strncpy(d, s ? s : "", n - 1);
+	d[n - 1] = 0;
+}
 
 bool ModbusTcpSource::wifiUp() const {
-	return WIFI_SSID[0] != 0 && WiFi.status() == WL_CONNECTED;
+	return ssid_[0] != 0 && WiFi.status() == WL_CONNECTED;
 }
 
 String ModbusTcpSource::localIp() const {
@@ -19,18 +27,26 @@ int ModbusTcpSource::linkRssi() const {
 }
 
 bool ModbusTcpSource::begin() {
+	const HmiConfig &c = hmicfg::get();
+	cpy(ssid_, c.wifiSsid, sizeof(ssid_));
+	cpy(pass_, c.wifiPass, sizeof(pass_));
+	cpy(host_, c.plcHost,  sizeof(host_));
+	port_   = c.plcPort ? c.plcPort : PLC_PORT;
+	unit_   = c.plcUnit;
+	pollMs_ = c.pollMs ? c.pollMs : MB_POLL_MS;
+
 	for (uint8_t s = 0; s < NUM_WELLS; s++)
-		snprintf(latest.well[s].name, WELL_NAME_LEN, "Estacion %u", (unsigned)(s + 1));
+		snprintf(latest.well[s].name, WELL_NAME_LEN, "%s", c.stationName[s]);
 	latest.count = NUM_WELLS;
 
-	ipOk_ = plcIp_.fromString(PLC_HOST);
+	ipOk_ = plcIp_.fromString(host_);
 
-	if (WIFI_SSID[0]) {
+	if (ssid_[0]) {
 		WiFi.persistent(false);
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
 		WiFi.setAutoReconnect(true);
-		WiFi.begin(WIFI_SSID, WIFI_PASS);
+		WiFi.begin(ssid_, pass_);
 		wifiStarted_ = true;
 	}
 
@@ -47,19 +63,19 @@ void ModbusTcpSource::poll() {
 	mb_.task();
 	if (!wifiUp()) return;
 
-	if (!ipOk_) {                          // PLC_HOST era un nombre, no una IP
-		ipOk_ = WiFi.hostByName(PLC_HOST, plcIp_);
+	if (!ipOk_) {                          // host era un nombre, no una IP
+		ipOk_ = WiFi.hostByName(host_, plcIp_);
 		if (!ipOk_) return;
 	}
 	uint32_t now = millis();
 	if (!mb_.isConnected(plcIp_)) {
 		if (now - lastConnTry_ < 3000) return;   // connect() bloquea: no martillearlo
 		lastConnTry_ = now;
-		mb_.connect(plcIp_, PLC_PORT);
+		mb_.connect(plcIp_, port_);
 		return;                                  // lee en el proximo poll
 	}
 
-	if (now - lastPoll_ < MB_POLL_MS) return;
+	if (now - lastPoll_ < pollMs_) return;
 	lastPoll_ = now;
 	kickReads();
 }
@@ -70,13 +86,13 @@ void ModbusTcpSource::kickReads() {
 			[this, s](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 				if (ev == Modbus::EX_SUCCESS) applyStation(s);
 				return true;
-			}, PLC_UNIT);
+			}, unit_);
 	}
 	mb_.readHreg(plcIp_, MAPB_G_MARK, ir_, 10,   // v2: bloque global en Holding Registers
 		[this](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 			if (ev == Modbus::EX_SUCCESS) applyGlobal();
 			return true;
-		}, PLC_UNIT);
+		}, unit_);
 }
 
 void ModbusTcpSource::applyStation(uint8_t s) {
@@ -113,7 +129,8 @@ void ModbusTcpSource::applyStation(uint8_t s) {
 	d.sirenAuto  = (st & MAPB_ST_SIREN_AUTO) != 0;
 	d.linkOk     = (st & MAPB_ST_LINK_OK)    != 0;
 
-	d.alarms = r[MAPB_HR_ALARMS];
+	d.alarms        = r[MAPB_HR_ALARMS];
+	d.alarmsLatched = r[MAPB_HR_ALARMS_LATCHED];
 	d.rssi   = (int16_t)r[MAPB_HR_RSSI];
 	d.ageS   = r[MAPB_HR_AGE];
 
@@ -138,21 +155,23 @@ bool ModbusTcpSource::sendCommand(const Command &cmd) {
 
 	switch (cmd.type) {
 		case CmdType::SirenOn:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, true, nullptr, PLC_UNIT);  break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, true, nullptr, unit_);  break;
 		case CmdType::SirenOff:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, false, nullptr, PLC_UNIT); break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_MANUAL, false, nullptr, unit_); break;
 		case CmdType::SirenAuto:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, true, nullptr, PLC_UNIT);    break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, true, nullptr, unit_);    break;
 		case CmdType::SirenManual:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, false, nullptr, PLC_UNIT);   break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SIREN_AUTO, false, nullptr, unit_);   break;
 		case CmdType::Silence:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_SILENCE, true, nullptr, PLC_UNIT);       break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_SILENCE, true, nullptr, unit_);       break;
 		case CmdType::ResetDay:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, PLC_UNIT);
-			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_DAY, true, nullptr, PLC_UNIT);     break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, unit_);
+			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_DAY, true, nullptr, unit_);     break;
 		case CmdType::ResetMonth:
-			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, PLC_UNIT);
-			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_MONTH, true, nullptr, PLC_UNIT);   break;
+			mb_.writeCoil(plcIp_, base + MAPB_CO_ARM_RESET, true, nullptr, unit_);
+			mb_.writeCoil(plcIp_, base + MAPB_CO_RESET_MONTH, true, nullptr, unit_);   break;
+		case CmdType::AckAlarms:
+			mb_.writeCoil(plcIp_, base + MAPB_CO_ACK_ALARMS, true, nullptr, unit_);    break;
 	}
 	return true;
 }
@@ -160,7 +179,7 @@ bool ModbusTcpSource::sendCommand(const Command &cmd) {
 // --- bloque de escala (hb+20..31) ---------------------------------------
 void ModbusTcpSource::requestScale(uint8_t s) {
 	if (s >= NUM_WELLS || !wifiUp() || !ipOk_) return;
-	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, PLC_PORT);  // autoConnect completa la lectura
+	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, port_);  // autoConnect completa la lectura
 	mb_.readHreg(plcIp_, s * MAPB_HR_STRIDE + MAPB_HR_SCALE_BASE, scaleBuf_[s], 12,
 		[this, s](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 			if (ev != Modbus::EX_SUCCESS) return true;
@@ -175,7 +194,7 @@ void ModbusTcpSource::requestScale(uint8_t s) {
 			sc.stamp = v[11];
 			sc.valid = true;
 			return true;
-		}, PLC_UNIT);
+		}, unit_);
 }
 
 bool ModbusTcpSource::scaleValid(uint8_t s) const {
@@ -188,7 +207,7 @@ StationScale ModbusTcpSource::getScale(uint8_t s) const {
 
 bool ModbusTcpSource::applyScale(uint8_t s, const StationScale &sc) {
 	if (s >= NUM_WELLS || !wifiUp() || !ipOk_) return false;
-	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, PLC_PORT);
+	if (!mb_.isConnected(plcIp_)) mb_.connect(plcIp_, port_);
 
 	wbuf_[0]  = sc.level.rawMin;  wbuf_[1]  = sc.level.rawMax;
 	wbuf_[2]  = (uint16_t)sc.level.engMin; wbuf_[3] = (uint16_t)sc.level.engMax;
@@ -202,8 +221,8 @@ bool ModbusTcpSource::applyScale(uint8_t s, const StationScale &sc) {
 	mb_.writeHreg(plcIp_, hbase, wbuf_, 12,
 		[this, s, cbase](Modbus::ResultCode ev, uint16_t, void *) -> bool {
 			if (ev == Modbus::EX_SUCCESS)
-				mb_.writeCoil(plcIp_, cbase + MAPB_CO_APPLY_SCALE, true, nullptr, PLC_UNIT);
+				mb_.writeCoil(plcIp_, cbase + MAPB_CO_APPLY_SCALE, true, nullptr, unit_);
 			return true;
-		}, PLC_UNIT);
+		}, unit_);
 	return true;
 }

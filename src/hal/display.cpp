@@ -9,9 +9,16 @@ static lv_color_t s_buf[SCREEN_W * DRAW_BUF_LINES];
 static lv_disp_draw_buf_t s_draw_buf;
 static lv_disp_drv_t s_disp_drv;
 
-static uint8_t s_bl_pct = 80;
+static uint8_t s_bl_pct  = 80;
+static bool    s_invert  = true;    /* esta CYD (TPM408-2.8) necesita inversion; ajustable con 'inv' */
 
 TFT_eSPI &display_tft() { return tft; }
+
+void display_set_invert(bool on) {
+	s_invert = on;
+	tft.invertDisplay(on);
+}
+bool display_invert() { return s_invert; }
 
 /* --- callback de volcado a pantalla --- */
 static void disp_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_p) {
@@ -32,19 +39,10 @@ void display_backlight_pct(uint8_t pct) {
 	analogWrite(PIN_TFT_BL, map(s_bl_pct, 0, 100, 0, 255));
 }
 
-void display_backlight_auto() {
-	int raw = analogRead(PIN_LDR);          /* 0..4095, mas luz -> menor valor en la CYD */
-	int lux = map(raw, 0, 4095, 100, 0);
-	lux = constrain(lux, 0, 100);
-	/* suavizado simple + piso de 15 % para que nunca quede negra */
-	uint8_t objetivo = constrain(15 + (lux * 85) / 100, 15, 100);
-	int delta = (int)objetivo - (int)s_bl_pct;
-	if (abs(delta) >= 3) display_backlight_pct(s_bl_pct + (delta > 0 ? 3 : -3));
-}
-
 void display_hw_init() {
 	tft.begin();
 	tft.setRotation(TFT_ROTATION);
+	display_set_invert(s_invert);          /* corrige la inversion del panel */
 	tft.fillScreen(TFT_BLACK);
 	pinMode(PIN_TFT_BL, OUTPUT);
 	display_backlight_pct(s_bl_pct);

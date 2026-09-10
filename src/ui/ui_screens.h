@@ -12,11 +12,20 @@ void      screen_wells_update();
 lv_obj_t *screen_well_create();
 void      screen_well_update();
 
+lv_obj_t *screen_actions_create();
+void      screen_actions_update();
+
 lv_obj_t *screen_history_create();
 void      screen_history_update();
 
 lv_obj_t *screen_settings_create();
 void      screen_settings_update();
+
+lv_obj_t *screen_pin_create();
+void      screen_pin_prepare(void (*on_ok)());
+
+lv_obj_t *screen_config_create();
+void      screen_config_enter();
 
 lv_obj_t *screen_scale_create();
 void      screen_scale_update();

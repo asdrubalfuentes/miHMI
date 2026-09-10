@@ -3,6 +3,8 @@
 #include "ui/theme.h"
 #include "config.h"
 #include "data/data_hub.h"
+#include "data/hmi_config.h"
+#include "hal/net_clock.h"
 #include <Arduino.h>
 #include <lvgl.h>
 #include <math.h>
@@ -10,45 +12,19 @@
 
 /* ---- widgets refrescados por screen_well_update() ---- */
 static lv_obj_t *lbl_name;
-static lv_obj_t *lbl_mb, *lbl_lora;
+static lv_obj_t *lbl_ticker;                 /* cintillo con tiras de mensajes */
 static lv_obj_t *lbl_status;                 /* OK / ALARMA / SIN ENLACE */
+static lv_obj_t *lbl_stnbtn;                 /* etiqueta del boton "Estacion N" */
 static lv_obj_t *arc_level, *lbl_level_pct, *lbl_level_m;
-static lv_obj_t *lbl_flow, *lbl_flow_m3h;
+static lv_obj_t *lbl_flow;
 static lv_obj_t *lbl_today;
 static lv_obj_t *lbl_alarms;
-static lv_obj_t *btn_siren_lbl;
 
 static uint8_t sel() { return DataHub::instance().selectedWell(); }
 static const WellData &cur() { return DataHub::instance().data().well[sel()]; }
 
 /* ------------------------- eventos ------------------------- */
-static void mb_silence_cb(lv_event_t *e) {
-	lv_obj_t *mb = lv_event_get_current_target(e);
-	if (lv_msgbox_get_active_btn(mb) == 0)
-		DataHub::instance().enqueue(CmdType::Silence, sel());
-	lv_msgbox_close(mb);
-}
-
-static void confirm(const char *msg, lv_event_cb_t cb) {
-	static const char *btns[] = {"Si", "No", ""};
-	lv_obj_t *mb = lv_msgbox_create(nullptr, "Confirmar", msg, btns, false);
-	lv_obj_center(mb);
-	lv_obj_add_event_cb(mb, cb, LV_EVENT_VALUE_CHANGED, nullptr);
-}
-
-static void on_silence(lv_event_t *e) {
-	(void)e;
-	static char m[64];
-	snprintf(m, sizeof(m), "Silenciar la sirena de %s?", cur().name);
-	confirm(m, mb_silence_cb);
-}
-
-static void on_siren_mode(lv_event_t *e) {
-	(void)e;
-	/* alterna AUTO <-> MANUAL */
-	DataHub::instance().enqueue(cur().sirenAuto ? CmdType::SirenManual
-	                                            : CmdType::SirenAuto, sel());
-}
+static void on_actions(lv_event_t *e) { (void)e; ui_show_actions(); }
 
 static void on_prev(lv_event_t *e) {
 	(void)e;
@@ -65,15 +41,6 @@ static void on_hist(lv_event_t *e)     { (void)e; ui_show_history();  }
 static void on_settings(lv_event_t *e) { (void)e; ui_show_settings(); }
 
 /* ------------------------- helpers ------------------------- */
-static lv_obj_t *make_stat(lv_obj_t *parent, const char *txt, lv_coord_t x) {
-	lv_obj_t *l = lv_label_create(parent);
-	lv_label_set_text(l, txt);
-	lv_obj_set_style_text_font(l, &lv_font_montserrat_12, 0);
-	lv_obj_set_style_text_color(l, COL_MUTED, 0);
-	lv_obj_align(l, LV_ALIGN_TOP_LEFT, x, 8);
-	return l;
-}
-
 static lv_obj_t *icon_btn(lv_obj_t *parent, const char *sym, lv_coord_t w, lv_event_cb_t cb) {
 	lv_obj_t *b = lv_btn_create(parent);
 	lv_obj_set_size(b, w, 24);
@@ -135,18 +102,28 @@ lv_obj_t *screen_well_create() {
 	lv_obj_t *bset = icon_btn(top, LV_SYMBOL_SETTINGS, 34, on_settings);
 	lv_obj_align(bset, LV_ALIGN_RIGHT_MID, -6, 0);
 
-	/* estado de fuentes de datos (fila fina bajo la barra) */
-	lbl_mb   = make_stat(scr, "MB",   8);
-	lbl_lora = make_stat(scr, "sim",  44);
-	lbl_status = lv_label_create(scr);
-	lv_label_set_text(lbl_status, "--");
-	lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_14, 0);
-	lv_obj_align(lbl_status, LV_ALIGN_TOP_RIGHT, -10, 6);
+	/* --- cintillo: tira de mensajes con scroll circular --- */
+	lv_obj_t *tk = lv_obj_create(scr);
+	lv_obj_set_pos(tk, 0, 30);
+	lv_obj_set_size(tk, SCREEN_W, 20);
+	lv_obj_set_style_bg_color(tk, COL_SUNKEN, 0);
+	lv_obj_set_style_radius(tk, 0, 0);
+	lv_obj_set_style_border_width(tk, 0, 0);
+	lv_obj_set_style_pad_all(tk, 0, 0);
+	lv_obj_clear_flag(tk, LV_OBJ_FLAG_SCROLLABLE);
+
+	lbl_ticker = lv_label_create(tk);
+	lv_label_set_long_mode(lbl_ticker, LV_LABEL_LONG_SCROLL_CIRCULAR);
+	lv_obj_set_width(lbl_ticker, SCREEN_W - 12);
+	lv_label_set_text(lbl_ticker, APP_NAME);
+	lv_obj_set_style_text_font(lbl_ticker, &lv_font_montserrat_12, 0);
+	lv_obj_set_style_text_color(lbl_ticker, COL_MUTED, 0);
+	lv_obj_align(lbl_ticker, LV_ALIGN_LEFT_MID, 6, 0);
 
 	/* --- nivel (arco) --- */
 	arc_level = lv_arc_create(scr);
-	lv_obj_set_size(arc_level, 132, 132);
-	lv_obj_set_pos(arc_level, 8, 40);
+	lv_obj_set_size(arc_level, 124, 124);
+	lv_obj_set_pos(arc_level, 8, 52);
 	lv_arc_set_rotation(arc_level, 135);
 	lv_arc_set_bg_angles(arc_level, 0, 270);
 	lv_arc_set_range(arc_level, 0, 100);
@@ -166,32 +143,26 @@ lv_obj_t *screen_well_create() {
 
 	lbl_level_m = lv_label_create(scr);
 	lv_label_set_text(lbl_level_m, "-- m");
-	lv_obj_set_style_text_font(lbl_level_m, &lv_font_montserrat_14, 0);
+	lv_obj_set_style_text_font(lbl_level_m, &lv_font_montserrat_16, 0);
 	lv_obj_set_style_text_color(lbl_level_m, COL_MUTED, 0);
-	lv_obj_align_to(lbl_level_m, arc_level, LV_ALIGN_CENTER, 0, 20);
+	lv_obj_align_to(lbl_level_m, arc_level, LV_ALIGN_CENTER, 0, 22);
 
 	lv_obj_t *lvl_title = lv_label_create(scr);
 	lv_label_set_text(lvl_title, "NIVEL");
 	lv_obj_add_style(lvl_title, &st_title, 0);
-	lv_obj_align(lvl_title, LV_ALIGN_TOP_LEFT, 24, 174);
+	lv_obj_align_to(lvl_title, arc_level, LV_ALIGN_OUT_BOTTOM_MID, 0, 2);
 
 	/* --- caudal + acumulado del dia --- */
 	lv_obj_t *flow_title = lv_label_create(scr);
 	lv_label_set_text(flow_title, "CAUDAL");
 	lv_obj_add_style(flow_title, &st_title, 0);
-	lv_obj_set_pos(flow_title, 156, 42);
+	lv_obj_set_pos(flow_title, 156, 54);
 
 	lbl_flow = lv_label_create(scr);
 	lv_label_set_text(lbl_flow, "-- L/s");
 	lv_obj_set_style_text_font(lbl_flow, &lv_font_montserrat_28, 0);
 	lv_obj_set_style_text_color(lbl_flow, COL_TEXT, 0);
-	lv_obj_set_pos(lbl_flow, 156, 56);
-
-	lbl_flow_m3h = lv_label_create(scr);
-	lv_label_set_text(lbl_flow_m3h, "-- m3/h");
-	lv_obj_set_style_text_font(lbl_flow_m3h, &lv_font_montserrat_14, 0);
-	lv_obj_set_style_text_color(lbl_flow_m3h, COL_MUTED, 0);
-	lv_obj_set_pos(lbl_flow_m3h, 156, 90);
+	lv_obj_set_pos(lbl_flow, 156, 68);
 
 	lv_obj_t *today_title = lv_label_create(scr);
 	lv_label_set_text(today_title, "ACUMULADO HOY");
@@ -202,28 +173,40 @@ lv_obj_t *screen_well_create() {
 	lv_label_set_text(lbl_today, "-- m3");
 	lv_obj_set_style_text_font(lbl_today, &lv_font_montserrat_28, 0);
 	lv_obj_set_style_text_color(lbl_today, COL_TEAL, 0);
-	lv_obj_set_pos(lbl_today, 156, 128);
+	lv_obj_set_pos(lbl_today, 156, 126);
 
-	/* alarmas activas (linea que hace scroll) */
+	/* estado de la estacion: bajo ACUMULADO (antes en el cintillo, se solapaba) */
+	lbl_status = lv_label_create(scr);
+	lv_label_set_text(lbl_status, "--");
+	lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_16, 0);
+	lv_obj_set_pos(lbl_status, 156, 160);
+
+	/* alarma activa (linea que hace scroll) */
 	lbl_alarms = lv_label_create(scr);
 	lv_label_set_long_mode(lbl_alarms, LV_LABEL_LONG_SCROLL_CIRCULAR);
-	lv_obj_set_width(lbl_alarms, 150);
+	lv_obj_set_width(lbl_alarms, 156);
 	lv_label_set_text(lbl_alarms, "");
 	lv_obj_set_style_text_font(lbl_alarms, &lv_font_montserrat_12, 0);
 	lv_obj_set_style_text_color(lbl_alarms, COL_WARN, 0);
-	lv_obj_set_pos(lbl_alarms, 156, 160);
+	lv_obj_set_pos(lbl_alarms, 156, 182);
 
-	/* --- botonera inferior --- */
-	action_btn(scr, "SILENCIAR", COL_WARN, 8, 100, on_silence);
-	btn_siren_lbl = action_btn(scr, "SIRENA AUTO", COL_TEAL_D, 112, 110, on_siren_mode);
+	/* --- botonera inferior: Estacion N | ACCIONES | historico --- */
+	lbl_stnbtn = action_btn(scr, "Estacion", COL_TEAL_D, 8, 100, on_list);
+	action_btn(scr, "ACCIONES", COL_TEAL_D, 112, 110, on_actions);
 	action_btn(scr, LV_SYMBOL_LIST, COL_TEAL_D, 228, 84, on_hist);
 
 	return scr;
 }
 
 /* ------------------------- update ------------------------- */
-static void set_health(lv_obj_t *l, SrcHealth h) {
-	lv_obj_set_style_text_color(l, ui_health_color((int)h), 0);
+static const char *comm_str() {
+	DataHub &hub = DataHub::instance();
+	DataSource *pri = hub.primary();
+	bool on_plc = pri && strcmp(hub.activeSourceName(), pri->name()) == 0;
+	SrcHealth h = hub.primaryHealth();
+	if (on_plc && h == SrcHealth::Ok)     return "PLC conectado";
+	if (on_plc && h == SrcHealth::Stale)  return "PLC intermitente";
+	return "PLC sin conexion (sim)";
 }
 
 static const char *first_alarm(uint16_t bits) {
@@ -243,20 +226,54 @@ void screen_well_update() {
 	DataHub &hub = DataHub::instance();
 	const WellData &d = hub.data().well[hub.selectedWell()];
 
-	lv_label_set_text_fmt(lbl_name, "%s   (%u/%u)",
-	                      d.name, (unsigned)(hub.selectedWell() + 1), (unsigned)NUM_WELLS);
+	unsigned idx1 = (unsigned)(hub.selectedWell() + 1);
+	lv_label_set_text_fmt(lbl_name, "%u/%u", idx1, (unsigned)NUM_WELLS);
+	lv_label_set_text(lbl_stnbtn, d.name);
+
+	/* cintillo: Mi HMI | Estacion | version | hora | estado de comunicacion */
+	char hm[8]; netclock::hm(hm, sizeof(hm));
+	char tk[160];
+	snprintf(tk, sizeof(tk), "%s   |   %s   |   v%s   |   %s   |   %s",
+	         APP_NAME, d.name, APP_VERSION, hm, comm_str());
+	lv_label_set_text(lbl_ticker, tk);
 
 	/* LVGL no formatea %f: usar snprintf de libc y set_text */
 	char b[28];
-	lv_arc_set_value(arc_level, (int)lroundf(d.levelEng));
-	snprintf(b, sizeof(b), "%d %s", (int)lroundf(d.levelEng), mapb_unit_level(d.levelUnit));
+	DataSource *pri = hub.primary();
+	uint8_t     si  = hub.selectedWell();
+
+	/* --- nivel: % grande (arco) + metros de profundidad debajo ---
+	   Rango de profundidad: la escala del PLC si esta leida; si no, el fallback
+	   configurable levelMaxM (0..levelMaxM m). */
+	bool  hasScale = pri && pri->scaleValid(si);
+	float lo, hi;
+	if (hasScale) {
+		StationScale sc = pri->getScale(si);
+		lo = sc.level.engMin / 100.0f;
+		hi = sc.level.engMax / 100.0f;
+	} else {
+		lo = 0.0f;
+		hi = (float)hmicfg::get().levelMaxM;
+	}
+
+	float pct, depthM;
+	if (d.levelUnit == 0) {                         /* el PLC manda % */
+		pct    = d.levelEng;
+		depthM = lo + (pct / 100.0f) * (hi - lo);
+	} else {                                        /* el PLC manda m / cm / mca */
+		depthM = d.levelEng * (d.levelUnit == 2 ? 0.01f : 1.0f);
+		pct    = (hi > lo) ? (depthM - lo) / (hi - lo) * 100.0f : d.levelEng;
+	}
+	if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
+
+	lv_arc_set_value(arc_level, (int)lroundf(pct));
+	snprintf(b, sizeof(b), "%d %%", (int)lroundf(pct));
 	lv_label_set_text(lbl_level_pct, b);
-	snprintf(b, sizeof(b), "raw %u", d.levelRaw);
+	snprintf(b, sizeof(b), "%.2f m", depthM);
 	lv_label_set_text(lbl_level_m, b);
+
 	snprintf(b, sizeof(b), "%.1f %s", d.flowEng, mapb_unit_flow(d.flowUnit));
 	lv_label_set_text(lbl_flow, b);
-	snprintf(b, sizeof(b), "raw %u", d.flowRaw);
-	lv_label_set_text(lbl_flow_m3h, b);
 	snprintf(b, sizeof(b), "%.1f m3", d.totalDayM3);
 	lv_label_set_text(lbl_today, b);
 
@@ -266,14 +283,16 @@ void screen_well_update() {
 	} else if (d.inAlarm()) {
 		lv_label_set_text(lbl_status, d.sirenOn ? "ALARMA*" : "ALARMA");
 		lv_obj_set_style_text_color(lbl_status, COL_WARN, 0);
+	} else if (d.hasLatched()) {
+		lv_label_set_text(lbl_status, "PENDIENTE ACK");
+		lv_obj_set_style_text_color(lbl_status, COL_WARN, 0);
 	} else {
 		lv_label_set_text(lbl_status, "OK");
 		lv_obj_set_style_text_color(lbl_status, COL_RUN, 0);
 	}
 
-	lv_label_set_text(lbl_alarms, d.inAlarm() ? first_alarm(d.alarms) : "");
-	lv_label_set_text(btn_siren_lbl, d.sirenAuto ? "SIRENA AUTO" : "SIRENA MAN");
-
-	set_health(lbl_mb, hub.primaryHealth());
-	set_health(lbl_lora, hub.backupHealth());
+	lv_label_set_text(lbl_alarms,
+	                  d.inAlarm()     ? first_alarm(d.alarms)
+	                  : d.hasLatched() ? first_alarm(d.alarmsLatched)
+	                                   : "");
 }

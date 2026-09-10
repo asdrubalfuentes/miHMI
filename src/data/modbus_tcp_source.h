@@ -49,6 +49,14 @@ private:
 	uint32_t  lastConnTry_ = 0;
 	uint32_t  lastOk_      = 0;
 
+	/* Instantanea de hmicfg tomada en begin() */
+	char      ssid_[33] = {};
+	char      pass_[65] = {};
+	char      host_[41] = {};
+	uint16_t  port_     = PLC_PORT;
+	uint8_t   unit_     = PLC_UNIT;
+	uint16_t  pollMs_   = MB_POLL_MS;
+
 	uint16_t  hr_[NUM_WELLS][MAPB_HR_BLOCK_LEN] = {};   // bloque completo de estacion
 	uint16_t  ir_[10] = {};
 

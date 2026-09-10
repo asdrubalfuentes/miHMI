@@ -3,8 +3,10 @@
 #include "ui/theme.h"
 #include "config.h"
 #include "data/data_hub.h"
+#include "data/hmi_config.h"
 #include "hal/touch.h"
 #include <lvgl.h>
+#include <stdio.h>
 #include <string.h>
 
 static lv_obj_t *lbl_plc;       /* estado del enlace con el PLC (grande) */
@@ -15,6 +17,7 @@ static lv_obj_t *lbl_counters;
 
 static void on_back(lv_event_t *e) { (void)e; ui_show_wells(); }
 static void on_scale(lv_event_t *e) { (void)e; ui_show_scale(); }
+static void on_config(lv_event_t *e) { (void)e; ui_show_pin(ui_show_config); }
 
 static void on_recal(lv_event_t *e) {
 	(void)e;
@@ -49,6 +52,17 @@ lv_obj_t *screen_settings_create() {
 	lv_obj_set_style_text_color(title, COL_TEXT, 0);
 	lv_obj_align(title, LV_ALIGN_TOP_LEFT, 10, 6);
 
+	/* Volver: esquina superior derecha (antes abajo, se solapaba con Escala/Recalibr.) */
+	lv_obj_t *back = lv_btn_create(scr);
+	lv_obj_set_size(back, 78, 26);
+	lv_obj_align(back, LV_ALIGN_TOP_RIGHT, -6, 3);
+	lv_obj_set_style_bg_color(back, COL_TEAL_D, 0);
+	lv_obj_add_event_cb(back, on_back, LV_EVENT_CLICKED, nullptr);
+	lv_obj_t *bl = lv_label_create(back);
+	lv_label_set_text(bl, LV_SYMBOL_LEFT " Volver");
+	lv_obj_set_style_text_font(bl, &lv_font_montserrat_12, 0);
+	lv_obj_center(bl);
+
 	/* estado del enlace con el PLC: la respuesta a "estoy conectado?" */
 	lv_obj_t *k = lv_label_create(scr);
 	lv_label_set_text(k, "Enlace PLC");
@@ -60,45 +74,46 @@ lv_obj_t *screen_settings_create() {
 	lv_obj_set_style_text_font(lbl_plc, &lv_font_montserrat_16, 0);
 	lv_obj_align(lbl_plc, LV_ALIGN_TOP_LEFT, 110, 28);
 
-	char buf[48];
-	snprintf(buf, sizeof(buf), "%s:%d", PLC_HOST, PLC_PORT);
-	row(scr, "PLC destino", buf, 54);
-	lbl_ip     = row(scr, "IP del HMI", "--", 74);
-	lbl_wifi   = row(scr, "WiFi", WIFI_SSID[0] ? WIFI_SSID : "sin configurar", 94);
-	lbl_origin = row(scr, "Origen / latido", "--", 114);
-	lbl_counters = row(scr, "Tramas OK / ERR", "0 / 0", 134);
+	const HmiConfig &c = hmicfg::get();
+	char buf[56];
+	snprintf(buf, sizeof(buf), "%s:%u  u%u", c.plcHost, c.plcPort, c.plcUnit);
+	row(scr, "PLC destino", buf, 52);
+	lbl_ip     = row(scr, "IP del HMI", "--", 72);
+	lbl_wifi   = row(scr, "WiFi", c.wifiSsid[0] ? c.wifiSsid : "sin configurar", 92);
+	lbl_origin = row(scr, "Origen / latido", "--", 112);
+	lbl_counters = row(scr, "Tramas OK / ERR", "0 / 0", 132);
+	snprintf(buf, sizeof(buf), "%s%s", hmicfg::source(),
+	         hmicfg::sdMounted() ? " (microSD OK)" : " (sin microSD)");
+	row(scr, "Config", buf, 152);
+
+	lv_obj_t *bcfg = lv_btn_create(scr);
+	lv_obj_set_size(bcfg, 120, 40);
+	lv_obj_align(bcfg, LV_ALIGN_TOP_LEFT, 12, 172);
+	lv_obj_set_style_bg_color(bcfg, COL_ORANGE, 0);
+	lv_obj_add_event_cb(bcfg, on_config, LV_EVENT_CLICKED, nullptr);
+	lv_obj_center(lv_label_create(bcfg));
+	lv_label_set_text(lv_obj_get_child(bcfg, 0), "Configuracion");
 
 	lv_obj_t *bscale = lv_btn_create(scr);
-	lv_obj_set_size(bscale, 175, 40);
-	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 12, 158);
+	lv_obj_set_size(bscale, 92, 40);
+	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 138, 172);
 	lv_obj_set_style_bg_color(bscale, COL_TEAL, 0);
 	lv_obj_add_event_cb(bscale, on_scale, LV_EVENT_CLICKED, nullptr);
-	lv_obj_t *sl = lv_label_create(bscale);
-	lv_label_set_text(sl, "Rangos de escala");
-	lv_obj_center(sl);
+	lv_obj_center(lv_label_create(bscale));
+	lv_label_set_text(lv_obj_get_child(bscale, 0), "Escala");
 
 	lv_obj_t *brecal = lv_btn_create(scr);
-	lv_obj_set_size(brecal, 115, 40);
-	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 194, 158);
-	lv_obj_set_style_bg_color(brecal, COL_ORANGE, 0);
+	lv_obj_set_size(brecal, 84, 40);
+	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 236, 172);
+	lv_obj_set_style_bg_color(brecal, COL_TEAL_D, 0);
 	lv_obj_add_event_cb(brecal, on_recal, LV_EVENT_CLICKED, nullptr);
-	lv_obj_t *rl = lv_label_create(brecal);
-	lv_label_set_text(rl, "Recalibrar");
-	lv_obj_center(rl);
+	lv_obj_center(lv_label_create(brecal));
+	lv_label_set_text(lv_obj_get_child(brecal, 0), "Recalibr.");
 
 	lv_obj_t *ver = lv_label_create(scr);
 	lv_label_set_text_fmt(ver, "%s  v%s", APP_NAME, APP_VERSION);
 	lv_obj_add_style(ver, &st_title, 0);
 	lv_obj_align(ver, LV_ALIGN_BOTTOM_LEFT, 10, -10);
-
-	lv_obj_t *back = lv_btn_create(scr);
-	lv_obj_set_size(back, 90, 40);
-	lv_obj_align(back, LV_ALIGN_BOTTOM_RIGHT, -8, -6);
-	lv_obj_set_style_bg_color(back, COL_TEAL_D, 0);
-	lv_obj_add_event_cb(back, on_back, LV_EVENT_CLICKED, nullptr);
-	lv_obj_t *bl = lv_label_create(back);
-	lv_label_set_text(bl, LV_SYMBOL_LEFT " Volver");
-	lv_obj_center(bl);
 
 	return scr;
 }
@@ -118,9 +133,10 @@ void screen_settings_update() {
 	lv_label_set_text(lbl_plc, txt);
 	lv_obj_set_style_text_color(lbl_plc, col, 0);
 
+	const char *ssid = hmicfg::get().wifiSsid;
 	lv_label_set_text_fmt(lbl_ip, "%s", pri ? pri->localIp().c_str() : "-");
 	lv_label_set_text_fmt(lbl_wifi, "%s  %d dBm",
-	                      WIFI_SSID[0] ? WIFI_SSID : "--", pri ? pri->linkRssi() : 0);
+	                      ssid[0] ? ssid : "--", pri ? pri->linkRssi() : 0);
 	lv_label_set_text_fmt(lbl_origin, "%s  ~ %u",
 	                      p.origin ? "LOGO! real" : "PLC-SIM", p.heartbeat);
 	lv_label_set_text_fmt(lbl_counters, "%lu / %lu",

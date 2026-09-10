@@ -30,6 +30,7 @@ enum {
     MAPB_HR_AGE        = 11,         /* s desde la ultima respuesta del nodo */
     MAPB_HR_LINK_ADDR  = 12,
     MAPB_HR_RDERR      = 13,
+    MAPB_HR_ALARMS_LATCHED = 14,     /* hb+14: alarmas latcheadas / sin reconocer */
     MAPB_HR_SCALE_BASE = 20,         /* +20..+31 bloque de escalado (r/w) */
     MAPB_HR_LVL_RAWMIN = 20, MAPB_HR_LVL_RAWMAX = 21,
     MAPB_HR_LVL_ENGMIN = 22, MAPB_HR_LVL_ENGMAX = 23,
@@ -59,6 +60,7 @@ enum {
     MAPB_CO_SILENCE      = 2,        /* pulso */
     MAPB_CO_RESET_DAY    = 3,        /* pulso, exige MAPB_CO_ARM_RESET */
     MAPB_CO_RESET_MONTH  = 4,        /* pulso, exige MAPB_CO_ARM_RESET */
+    MAPB_CO_ACK_ALARMS   = 5,        /* pulso: reconocer / limpiar hb+14 */
     MAPB_CO_APPLY_SCALE  = 8,        /* pulso */
     MAPB_CO_ARM_RESET    = 9,
 };
