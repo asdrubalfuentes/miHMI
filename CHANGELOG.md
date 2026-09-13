@@ -3,7 +3,7 @@
 Versión del canal OTA: `APP_VERSION` (`config.h`), formato `MAJOR.MINOR.PATCH`.
 El CI la sobreescribe desde el tag `vX.Y.Z` (`FW_VERSION_OVERRIDE`).
 
-## Sin publicar — respaldo de calibración de escala
+## 0.4.1 — respaldo de calibración de escala
 
 - El LOGO! 9 no retiene el bloque de escala (`hb+20..31`) tras un reinicio (sin
   memoria remanente configurada para eso, ver `ORCHESTRATION/PLC_LOGIC.md`) —
