@@ -63,4 +63,8 @@ private:
 	StationScale scale_[NUM_WELLS];
 	uint16_t     scaleBuf_[NUM_WELLS][12] = {};   // buffer de lectura async
 	uint16_t     wbuf_[12] = {};                  // buffer de escritura async
+
+	/* Restauracion automatica de calibracion (el LOGO! no la retiene tras un
+	 * reinicio, ver hmi_config.h/ScaleCache): un solo intento por perdida. */
+	bool scaleRestored_[NUM_WELLS] = {};
 };

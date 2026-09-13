@@ -3,6 +3,21 @@
 Versión del canal OTA: `APP_VERSION` (`config.h`), formato `MAJOR.MINOR.PATCH`.
 El CI la sobreescribe desde el tag `vX.Y.Z` (`FW_VERSION_OVERRIDE`).
 
+## Sin publicar — respaldo de calibración de escala
+
+- El LOGO! 9 no retiene el bloque de escala (`hb+20..31`) tras un reinicio (sin
+  memoria remanente configurada para eso, ver `ORCHESTRATION/PLC_LOGIC.md`) —
+  vuelve a `0` y el escalado queda en `SCALE_BAD` hasta recalibrar a mano.
+- `hmi_config` (`ScaleCache`, microSD + NVS) ahora guarda la última calibración
+  vista por estación. `modbus_tcp_source::applyStation()` detecta `rawMax` de
+  nivel en `0` y, si hay algo cacheado, **reaplica solo** la última calibración
+  conocida (`applyScale()`) — un intento por pérdida, se rearma cuando vuelve a
+  verse un valor real.
+- No sustituye la retentividad real para los acumulados del totalizador
+  (día/mes): esos si se pierden con el PLC, se pierden — la calibración de
+  escala rara vez cambia, así que reaplicar "lo último visto" siempre es
+  correcto; el consumo acumulado no.
+
 ## 0.4.0 — OTA vía GitHub Releases
 
 - **OTA "GitHub Releases pull"** (`src/net/ota_update.{h,cpp}` — módulo común de

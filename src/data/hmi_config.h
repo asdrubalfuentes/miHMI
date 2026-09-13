@@ -10,6 +10,7 @@
 #pragma once
 #include <Arduino.h>
 #include "config.h"
+#include "plant_data.h"   /* ScaleVar / StationScale */
 
 /* Adaptacion de pantalla al ambiente (LDR en GPIO34).
  *
@@ -31,6 +32,16 @@ struct LightCfg {
 	uint8_t  blManual;   /* % backlight fijo cuando enabled = 0                     */
 };
 
+/* Ultima calibracion de escala vista/aplicada por estacion (hb+20..31).
+ * El LOGO! no la retiene tras un reinicio (sin memoria remanente para eso,
+ * ver ORCHESTRATION/PLC_LOGIC.md); el HMI la guarda aqui y la reaplica sola
+ * si detecta que el PLC volvio a quedar sin calibrar (rawMax de nivel = 0). */
+struct ScaleCache {
+	ScaleVar level;
+	ScaleVar flow;
+	bool     known = false;   /* true una vez que se vio/aplico un valor real */
+};
+
 struct HmiConfig {
 	char     wifiSsid[33];
 	char     wifiPass[65];
@@ -46,6 +57,7 @@ struct HmiConfig {
 	char     tz[40];                  /* zona horaria POSIX (por defecto Chile) */
 	char     stationName[NUM_WELLS][WELL_NAME_LEN];
 	LightCfg light;
+	ScaleCache scaleCache[NUM_WELLS];
 };
 
 namespace hmicfg {
@@ -77,6 +89,10 @@ bool saveTime(const char *server, const char *tz);
 
 /* Igual pero solo la profundidad a fondo de escala (m). */
 bool saveLevelMaxM(uint8_t m);
+
+/* Cachea la ultima calibracion valida de una estacion (no-op si es igual a la
+ * ya cacheada, para no desgastar la microSD/NVS en cada sondeo). */
+bool saveScaleCache(uint8_t station, const StationScale &sc);
 
 /* Estado del almacenamiento. */
 bool        sdMounted();

@@ -118,6 +118,26 @@ void ModbusTcpSource::applyStation(uint8_t s) {
 	sc.stamp = r[MAPB_HR_CFG_STAMP];
 	sc.valid = true;
 
+	/* Restauracion automatica: si el PLC quedo sin calibrar (rawMax de nivel
+	 * en 0 -- nunca pasa con un valor real aplicado) y hay algo cacheado por
+	 * el HMI, se lo volvemos a mandar. Un solo intento por perdida; se rearma
+	 * solo cuando vuelve a verse un valor real (o sea, tras una restauracion
+	 * exitosa, o si alguien lo configura de nuevo desde la pantalla). */
+	const HmiConfig &hc = hmicfg::get();
+	if (sc.level.rawMax == 0) {
+		if (hc.scaleCache[s].known && !scaleRestored_[s]) {
+			scaleRestored_[s] = true;
+			StationScale restore;
+			restore.level = hc.scaleCache[s].level;
+			restore.flow  = hc.scaleCache[s].flow;
+			Serial.printf("[plc] estacion %u sin calibrar, restaurando desde cache\n", (unsigned)s);
+			applyScale(s, restore);
+		}
+	} else {
+		scaleRestored_[s] = false;
+		hmicfg::saveScaleCache(s, sc);
+	}
+
 	d.totalDayM3   = mapb_u32(r[MAPB_HR_DAY_W0], r[MAPB_HR_DAY_W1]) / MB_ACCUM_SCALE;
 	d.totalMonthM3 = mapb_u32(r[MAPB_HR_MON_W0], r[MAPB_HR_MON_W1]) / MB_ACCUM_SCALE;
 

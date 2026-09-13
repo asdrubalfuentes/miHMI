@@ -28,6 +28,11 @@ uint32_t fnv1a(const char *s) {
 	return h;
 }
 
+bool scaleVarEq(const ScaleVar &a, const ScaleVar &b) {
+	return a.rawMin == b.rawMin && a.rawMax == b.rawMax && a.engMin == b.engMin
+	    && a.engMax == b.engMax && a.unit   == b.unit   && a.filter == b.filter;
+}
+
 void apply_defaults() {
 	cpstr(g_cfg.wifiSsid, WIFI_SSID, sizeof(g_cfg.wifiSsid));
 	cpstr(g_cfg.wifiPass, WIFI_PASS, sizeof(g_cfg.wifiPass));
@@ -68,6 +73,8 @@ void nvs_load() {
 		{ String s = g_nvs.getString("tz",  g_cfg.tz);        cpstr(g_cfg.tz, s.c_str(), sizeof(g_cfg.tz)); }
 		if (g_nvs.getBytesLength("light") == sizeof(g_cfg.light))    /* si no, se queda el default */
 			g_nvs.getBytes("light", &g_cfg.light, sizeof(g_cfg.light));
+		if (g_nvs.getBytesLength("scalec") == sizeof(g_cfg.scaleCache))
+			g_nvs.getBytes("scalec", &g_cfg.scaleCache, sizeof(g_cfg.scaleCache));
 		for (uint8_t s = 0; s < NUM_WELLS; s++) {
 			char k[8]; snprintf(k, sizeof(k), "n%u", s);
 			String n = g_nvs.getString(k, g_cfg.stationName[s]);
@@ -93,6 +100,7 @@ void nvs_save() {
 	g_nvs.putString("ntp",   g_cfg.ntpServer);
 	g_nvs.putString("tz",    g_cfg.tz);
 	g_nvs.putBytes ("light", &g_cfg.light, sizeof(g_cfg.light));
+	g_nvs.putBytes ("scalec", &g_cfg.scaleCache, sizeof(g_cfg.scaleCache));
 	for (uint8_t s = 0; s < NUM_WELLS; s++) {
 		char k[8]; snprintf(k, sizeof(k), "n%u", s);
 		g_nvs.putString(k, g_cfg.stationName[s]);
@@ -152,6 +160,29 @@ bool sd_load() {
 			s++;
 		}
 	}
+	JsonArray sc = doc["scale"].as<JsonArray>();
+	if (!sc.isNull()) {
+		uint8_t s = 0;
+		for (JsonVariant v : sc) {
+			if (s >= NUM_WELLS) break;
+			ScaleCache &c = g_cfg.scaleCache[s];
+			c.known = v["known"] | c.known;
+			JsonObjectConst lv = v["level"], fl = v["flow"];
+			c.level.rawMin = lv["raw_min"] | c.level.rawMin;
+			c.level.rawMax = lv["raw_max"] | c.level.rawMax;
+			c.level.engMin = lv["eng_min"] | c.level.engMin;
+			c.level.engMax = lv["eng_max"] | c.level.engMax;
+			c.level.unit   = lv["unit"]    | c.level.unit;
+			c.level.filter = lv["filter"]  | c.level.filter;
+			c.flow.rawMin  = fl["raw_min"] | c.flow.rawMin;
+			c.flow.rawMax  = fl["raw_max"] | c.flow.rawMax;
+			c.flow.engMin  = fl["eng_min"] | c.flow.engMin;
+			c.flow.engMax  = fl["eng_max"] | c.flow.engMax;
+			c.flow.unit    = fl["unit"]    | c.flow.unit;
+			c.flow.filter  = fl["filter"]  | c.flow.filter;
+			s++;
+		}
+	}
 	return true;
 }
 
@@ -185,6 +216,21 @@ bool sd_save() {
 	lc["bl_manual"]  = g_cfg.light.blManual;
 	JsonArray names = doc["stations"].to<JsonArray>();
 	for (uint8_t s = 0; s < NUM_WELLS; s++) names.add(g_cfg.stationName[s]);
+
+	JsonArray sc = doc["scale"].to<JsonArray>();
+	for (uint8_t s = 0; s < NUM_WELLS; s++) {
+		const ScaleCache &c = g_cfg.scaleCache[s];
+		JsonObject o = sc.add<JsonObject>();
+		o["known"] = c.known;
+		JsonObject lv = o["level"].to<JsonObject>();
+		lv["raw_min"] = c.level.rawMin; lv["raw_max"] = c.level.rawMax;
+		lv["eng_min"] = c.level.engMin; lv["eng_max"] = c.level.engMax;
+		lv["unit"]    = c.level.unit;   lv["filter"]  = c.level.filter;
+		JsonObject fl = o["flow"].to<JsonObject>();
+		fl["raw_min"] = c.flow.rawMin; fl["raw_max"] = c.flow.rawMax;
+		fl["eng_min"] = c.flow.engMin; fl["eng_max"] = c.flow.engMax;
+		fl["unit"]    = c.flow.unit;   fl["filter"]  = c.flow.filter;
+	}
 
 	SD.remove(HMI_CFG_PATH);
 	File f = SD.open(HMI_CFG_PATH, FILE_WRITE);
@@ -296,6 +342,20 @@ bool saveLevelMaxM(uint8_t m) {
 	bool sdok = g_sd && sd_save();
 	Serial.printf("[cfg] profundidad de escala guardada (%u m)  NVS=ok  microSD=%s\n",
 	              g_cfg.levelMaxM, g_sd ? (sdok ? "ok" : "FALLO") : "no montada");
+	return true;
+}
+
+bool saveScaleCache(uint8_t s, const StationScale &sc) {
+	if (s >= NUM_WELLS) return false;
+	ScaleCache &c = g_cfg.scaleCache[s];
+	bool changed = !c.known || !scaleVarEq(c.level, sc.level) || !scaleVarEq(c.flow, sc.flow);
+	if (!changed) return true;
+	c.level = sc.level; c.flow = sc.flow; c.known = true;
+	nvs_save();
+	bool sdok = g_sd && sd_save();
+	Serial.printf("[cfg] escala est.%u cacheada (nivel raw %u..%u)  NVS=ok  microSD=%s\n",
+	              (unsigned)s, sc.level.rawMin, sc.level.rawMax,
+	              g_sd ? (sdok ? "ok" : "FALLO") : "no montada");
 	return true;
 }
 
