@@ -85,16 +85,18 @@ La microSD tiene prioridad sobre estos valores en operación.
 - **Acciones** (`screen_actions`, desde *Detalle*): mando por estación —
   **SILENCIAR**, **RECONOCER ALARMAS** (`cb+5`, limpia `hb+14`), **SIRENA
   AUTO/MANUAL**, **RESET DÍA / MES** (con confirmación).
-- **Rangos de escala** (`screen_scale`, desde *Ajustes*): edita el bloque
-  `hb+20..31` del MAPA B por estación y variable (cero/span crudo ↔ ingeniería,
-  unidad, filtro) con teclado numérico, y lo **APLICA** al PLC (escribe los
-  registros + pulsa el coil `cb+8`). La escala vive en el PLC; esto es el editor.
 - **PIN** (`screen_pin`): puerta de administrador (teclado 0-9). 3 fallos → vuelve
   a *Ajustes*. Compara contra un hash; el PIN nunca se guarda en claro.
 - **Configuración** (`screen_config`, desde *Ajustes* tras el PIN): SSID/clave
-  WiFi, host/puerto/unit/sondeo del PLC, nombres de estación, tema, PIN nuevo, y
-  **Buscar actualización** (OTA). **GUARDAR** persiste en microSD + NVS; ofrece
+  WiFi, **IP fija + Gateway/Máscara/DNS 1/DNS 2** (vacío = DHCP; con IP fija
+  hay que dar el DNS explícito o `WiFi.config()` lo deja sin ninguno — mismo
+  bug corregido en `nodeIO_master v1.5.3`, ver `ORCHESTRATION`), host/puerto/
+  unit/sondeo del PLC, nombres de estación, tema, PIN nuevo, y **Buscar
+  actualización** (OTA). **GUARDAR** persiste en microSD + NVS; ofrece
   reiniciar para aplicar la red.
+
+  > La página de **rangos de escala** (`screen_scale`) se eliminó en `0.5.0`
+  > — la calibración vive ahora en el portal del `nodeIO` remoto, no en el HMI.
 
 `CmdType` = superficie real del MAPA B: `SirenOn/Off`, `SirenAuto/Manual`,
 `Silence`, `ResetDay`, `ResetMonth`, `AckAlarms`. `WellData` refleja el MAPA B

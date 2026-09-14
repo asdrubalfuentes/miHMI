@@ -3,6 +3,21 @@
 Versión del canal OTA: `APP_VERSION` (`config.h`), formato `MAJOR.MINOR.PATCH`.
 El CI la sobreescribe desde el tag `vX.Y.Z` (`FW_VERSION_OVERRIDE`).
 
+## 0.5.1 — configuración de IP fija + DNS
+
+- `Configuración` (admin) gana 5 campos nuevos: **IP fija** (vacío = DHCP),
+  **Gateway**, **Máscara**, **DNS 1**, **DNS 2**. Igual que `nodeIO_master`:
+  con DHCP el DNS lo entrega el router solo, pero con IP fija hay que darlo
+  explícito o `WiFi.config()` lo deja en `0.0.0.0` y el HMI queda sin ningún
+  DNS (rompe "Buscar actualización" — mismo bug corregido en
+  `nodeIO_master v1.5.3`, ver `ORCHESTRATION`).
+- DNS 1 vacío con IP fija configurada usa el propio Gateway (la mayoría de
+  los routers hacen de proxy DNS); DNS 2 vacío usa `8.8.8.8` de respaldo.
+- `hmi_config.{h,cpp}`: `wifiIp/wifiGw/wifiMask/wifiDns1/wifiDns2` — persisten
+  en microSD (`/hmi_config.json` → `wifi.ip/gw/mask/dns1/dns2`) y NVS.
+- `modbus_tcp_source.cpp`: `WiFi.config(...)` antes de `WiFi.begin()` solo si
+  `wifiIp` no está vacío; con DHCP (por defecto) no cambia nada.
+
 ## 0.5.0 — cambio de rumbo: escalado en el nodo, no en el HMI
 
 - Se elimina la página de rangos (`screen_scale`) por completo — la

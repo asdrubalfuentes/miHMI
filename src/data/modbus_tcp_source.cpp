@@ -46,6 +46,23 @@ bool ModbusTcpSource::begin() {
 		WiFi.mode(WIFI_STA);
 		WiFi.setSleep(false);
 		WiFi.setAutoReconnect(true);
+
+		// IP fija (c.wifiIp no vacio): sin dns1/dns2, WiFi.config() los deja en
+		// 0.0.0.0 y el HMI queda sin NINGUN DNS (rompe "Buscar actualizacion" --
+		// mismo bug ya corregido en nodeIO_master v1.5.3). dns1 = wifiDns1 si se
+		// configuro, si no el propio gateway (la mayoria hace de proxy DNS);
+		// dns2 = wifiDns2 si se configuro, si no 8.8.8.8 de respaldo.
+		if (c.wifiIp[0]) {
+			IPAddress ip, gw, mask, dns1, dns2;
+			ip.fromString(c.wifiIp);
+			gw.fromString(c.wifiGw[0] ? c.wifiGw : c.wifiIp);
+			if (!mask.fromString(c.wifiMask[0] ? c.wifiMask : "255.255.255.0"))
+				mask = IPAddress(255, 255, 255, 0);
+			if (!(c.wifiDns1[0] && dns1.fromString(c.wifiDns1))) dns1 = gw;
+			if (!(c.wifiDns2[0] && dns2.fromString(c.wifiDns2))) dns2 = IPAddress(8, 8, 8, 8);
+			WiFi.config(ip, gw, mask, dns1, dns2);
+		}
+
 		WiFi.begin(ssid_, pass_);
 		wifiStarted_ = true;
 	}

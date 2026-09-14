@@ -19,6 +19,7 @@
 
 static lv_obj_t *lbl_store;
 static lv_obj_t *ta_ssid, *ta_pass, *ta_host, *ta_port, *ta_unit, *ta_poll;
+static lv_obj_t *ta_wip, *ta_wgw, *ta_wmask, *ta_wdns1, *ta_wdns2;
 static lv_obj_t *ta_name[NUM_WELLS];
 static lv_obj_t *ta_pin;
 static lv_obj_t *kb;
@@ -78,6 +79,11 @@ static void on_save(lv_event_t *e) {
 	HmiConfig c = hmicfg::editable();
 	cpystr(c.wifiSsid, lv_textarea_get_text(ta_ssid), sizeof(c.wifiSsid));
 	cpystr(c.wifiPass, lv_textarea_get_text(ta_pass), sizeof(c.wifiPass));
+	cpystr(c.wifiIp,   lv_textarea_get_text(ta_wip),   sizeof(c.wifiIp));
+	cpystr(c.wifiGw,   lv_textarea_get_text(ta_wgw),   sizeof(c.wifiGw));
+	cpystr(c.wifiMask, lv_textarea_get_text(ta_wmask), sizeof(c.wifiMask));
+	cpystr(c.wifiDns1, lv_textarea_get_text(ta_wdns1), sizeof(c.wifiDns1));
+	cpystr(c.wifiDns2, lv_textarea_get_text(ta_wdns2), sizeof(c.wifiDns2));
 	cpystr(c.plcHost,  lv_textarea_get_text(ta_host), sizeof(c.plcHost));
 
 	long port = atol(lv_textarea_get_text(ta_port));
@@ -201,8 +207,13 @@ lv_obj_t *screen_config_create() {
 	lv_obj_set_flex_flow(form, LV_FLEX_FLOW_COLUMN);
 	lv_obj_set_scroll_dir(form, LV_DIR_VER);
 
-	ta_ssid = field(form, "WiFi SSID", false, false);
-	ta_pass = field(form, "WiFi clave", false, false);
+	ta_ssid  = field(form, "WiFi SSID", false, false);
+	ta_pass  = field(form, "WiFi clave", false, false);
+	ta_wip   = field(form, "IP fija (vacio=DHCP)", true, false);
+	ta_wgw   = field(form, "Gateway", true, false);
+	ta_wmask = field(form, "Mascara", true, false);
+	ta_wdns1 = field(form, "DNS 1", true, false);
+	ta_wdns2 = field(form, "DNS 2", true, false);
 	ta_host = field(form, "PLC host", false, false);
 	ta_port = field(form, "PLC puerto", true, false);
 	ta_unit = field(form, "PLC unit id", true, false);
@@ -267,6 +278,11 @@ void screen_config_enter() {
 	const HmiConfig &c = hmicfg::get();
 	lv_textarea_set_text(ta_ssid, c.wifiSsid);
 	lv_textarea_set_text(ta_pass, c.wifiPass);
+	lv_textarea_set_text(ta_wip,   c.wifiIp);
+	lv_textarea_set_text(ta_wgw,   c.wifiGw);
+	lv_textarea_set_text(ta_wmask, c.wifiMask);
+	lv_textarea_set_text(ta_wdns1, c.wifiDns1);
+	lv_textarea_set_text(ta_wdns2, c.wifiDns2);
 	lv_textarea_set_text(ta_host, c.plcHost);
 	char b[12];
 	snprintf(b, sizeof(b), "%u", c.plcPort); lv_textarea_set_text(ta_port, b);

@@ -62,6 +62,11 @@ void nvs_load() {
 		cpstr(g_cfg.wifiSsid, ssid.c_str(), sizeof(g_cfg.wifiSsid));
 		cpstr(g_cfg.wifiPass, pass.c_str(), sizeof(g_cfg.wifiPass));
 		cpstr(g_cfg.plcHost,  host.c_str(), sizeof(g_cfg.plcHost));
+		{ String s = g_nvs.getString("wip",   g_cfg.wifiIp);   cpstr(g_cfg.wifiIp,   s.c_str(), sizeof(g_cfg.wifiIp)); }
+		{ String s = g_nvs.getString("wgw",   g_cfg.wifiGw);   cpstr(g_cfg.wifiGw,   s.c_str(), sizeof(g_cfg.wifiGw)); }
+		{ String s = g_nvs.getString("wmask", g_cfg.wifiMask); cpstr(g_cfg.wifiMask, s.c_str(), sizeof(g_cfg.wifiMask)); }
+		{ String s = g_nvs.getString("wdns1", g_cfg.wifiDns1); cpstr(g_cfg.wifiDns1, s.c_str(), sizeof(g_cfg.wifiDns1)); }
+		{ String s = g_nvs.getString("wdns2", g_cfg.wifiDns2); cpstr(g_cfg.wifiDns2, s.c_str(), sizeof(g_cfg.wifiDns2)); }
 		g_cfg.plcPort = g_nvs.getUShort("port", g_cfg.plcPort);
 		g_cfg.plcUnit = g_nvs.getUChar("unit", g_cfg.plcUnit);
 		g_cfg.pollMs  = g_nvs.getUShort("poll", g_cfg.pollMs);
@@ -90,6 +95,11 @@ void nvs_save() {
 	g_nvs.putString("ssid", g_cfg.wifiSsid);
 	g_nvs.putString("pass", g_cfg.wifiPass);
 	g_nvs.putString("host", g_cfg.plcHost);
+	g_nvs.putString("wip",   g_cfg.wifiIp);
+	g_nvs.putString("wgw",   g_cfg.wifiGw);
+	g_nvs.putString("wmask", g_cfg.wifiMask);
+	g_nvs.putString("wdns1", g_cfg.wifiDns1);
+	g_nvs.putString("wdns2", g_cfg.wifiDns2);
 	g_nvs.putUShort("port", g_cfg.plcPort);
 	g_nvs.putUChar ("unit", g_cfg.plcUnit);
 	g_nvs.putUShort("poll", g_cfg.pollMs);
@@ -123,6 +133,11 @@ bool sd_load() {
 	const char *js;
 	if ((js = doc["wifi"]["ssid"] | (const char *)nullptr)) cpstr(g_cfg.wifiSsid, js, sizeof(g_cfg.wifiSsid));
 	if ((js = doc["wifi"]["pass"] | (const char *)nullptr)) cpstr(g_cfg.wifiPass, js, sizeof(g_cfg.wifiPass));
+	if ((js = doc["wifi"]["ip"]   | (const char *)nullptr)) cpstr(g_cfg.wifiIp,   js, sizeof(g_cfg.wifiIp));
+	if ((js = doc["wifi"]["gw"]   | (const char *)nullptr)) cpstr(g_cfg.wifiGw,   js, sizeof(g_cfg.wifiGw));
+	if ((js = doc["wifi"]["mask"] | (const char *)nullptr)) cpstr(g_cfg.wifiMask, js, sizeof(g_cfg.wifiMask));
+	if ((js = doc["wifi"]["dns1"] | (const char *)nullptr)) cpstr(g_cfg.wifiDns1, js, sizeof(g_cfg.wifiDns1));
+	if ((js = doc["wifi"]["dns2"] | (const char *)nullptr)) cpstr(g_cfg.wifiDns2, js, sizeof(g_cfg.wifiDns2));
 	if ((js = doc["plc"]["host"]  | (const char *)nullptr)) cpstr(g_cfg.plcHost,  js, sizeof(g_cfg.plcHost));
 	g_cfg.plcPort = doc["plc"]["port"]    | g_cfg.plcPort;
 	g_cfg.plcUnit = doc["plc"]["unit"]    | g_cfg.plcUnit;
@@ -191,6 +206,11 @@ bool sd_save() {
 	doc["version"]        = 1;
 	doc["wifi"]["ssid"]   = g_cfg.wifiSsid;
 	doc["wifi"]["pass"]   = g_cfg.wifiPass;
+	doc["wifi"]["ip"]     = g_cfg.wifiIp;
+	doc["wifi"]["gw"]     = g_cfg.wifiGw;
+	doc["wifi"]["mask"]   = g_cfg.wifiMask;
+	doc["wifi"]["dns1"]   = g_cfg.wifiDns1;
+	doc["wifi"]["dns2"]   = g_cfg.wifiDns2;
 	doc["plc"]["host"]    = g_cfg.plcHost;
 	doc["plc"]["port"]    = g_cfg.plcPort;
 	doc["plc"]["unit"]    = g_cfg.plcUnit;

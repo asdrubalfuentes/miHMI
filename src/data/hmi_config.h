@@ -45,6 +45,17 @@ struct ScaleCache {
 struct HmiConfig {
 	char     wifiSsid[33];
 	char     wifiPass[65];
+	/* IP fija de planta (vacio en wifiIp = DHCP, igual que en nodeIO_master).
+	 * Con DHCP el DNS lo entrega el router solo; con IP fija hay que darlo
+	 * explicito o WiFi.config() lo deja en 0.0.0.0 y el HMI queda sin DNS
+	 * (rompe "Buscar actualizacion" -- ver nodeIO_master v1.5.3). wifiDns1
+	 * vacio con wifiIp fijado usa wifiGw como DNS (la mayoria de los routers
+	 * hacen de proxy DNS); wifiDns2 es respaldo opcional. */
+	char     wifiIp[16];
+	char     wifiGw[16];
+	char     wifiMask[16];
+	char     wifiDns1[16];
+	char     wifiDns2[16];
 	char     plcHost[41];
 	uint16_t plcPort;
 	uint8_t  plcUnit;
