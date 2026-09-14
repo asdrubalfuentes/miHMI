@@ -145,9 +145,8 @@ void screen_wells_update() {
 		lv_obj_set_style_text_color(lbl_state[i], col, 0);
 
 		char m[40];   /* LVGL no formatea %f */
-		snprintf(m, sizeof(m), "Nivel %d %s   Caudal %.1f %s",
-		         (int)lroundf(d.levelEng), mapb_unit_level(d.levelUnit),
-		         d.flowEng, mapb_unit_flow(d.flowUnit));
+		snprintf(m, sizeof(m), "Nivel %.2f m   Caudal %.1f m3/h",   /* unidades fijas */
+		         d.levelEng, d.flowEng);
 		lv_label_set_text(lbl_metrics[i], m);
 
 		lv_label_set_text_fmt(lbl_flags[i], "%s  %s  %s  RSSI %d",

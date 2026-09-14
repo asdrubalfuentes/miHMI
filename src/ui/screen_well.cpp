@@ -257,7 +257,7 @@ void screen_well_update() {
 	snprintf(b, sizeof(b), "%.2f m", depthM);
 	lv_label_set_text(lbl_level_m, b);
 
-	snprintf(b, sizeof(b), "%.1f %s", d.flowEng, mapb_unit_flow(d.flowUnit));
+	snprintf(b, sizeof(b), "%.1f m3/h", d.flowEng);   /* unidad fija, ver nodeIO ch[1].unit */
 	lv_label_set_text(lbl_flow, b);
 	snprintf(b, sizeof(b), "%.1f m3", d.totalDayM3);
 	lv_label_set_text(lbl_today, b);
