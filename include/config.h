@@ -90,6 +90,7 @@
 
 /* ===================== Historico de caudal ==================== */
 #define HIST_DAYS       14      /* barras del grafico "ultimos dias" */
+#define HIST_MONTHS     6       /* barras del grafico "ultimos meses" */
 
 /* ====== Fase 2: enlace de campo por Modbus TCP (MAPA B del contrato) ======= */
 /* Contrato: ../ORCHESTRATION/REGISTER_MAP.md   ·   offsets en src/data/map_b.h */
@@ -120,4 +121,5 @@
 
 #define MB_LEVEL_SCALE       100.0f   /* Mapa B: nivel y caudal viajan x100 */
 #define MB_FLOW_SCALE        100.0f
-#define MB_ACCUM_SCALE       10.0f    /* acumulados en m3 x10 */
+#define MB_ACCUM_SCALE       1000.0f  /* acumulados en m3 x1000 (cambio de rumbo 2026-09:
+                                        * ya vienen del nodo en esa escala, sin conversion en el LOGO!) */

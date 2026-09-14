@@ -9,11 +9,22 @@
 static lv_obj_t *chart;
 static lv_chart_series_t *ser;
 static lv_obj_t *lbl_title;
+static lv_obj_t *lbl_sub;
 static lv_obj_t *lbl_month;
+static lv_obj_t *btn_toggle;
+static bool      showMonths = false;   /* false = dias (HIST_DAYS), true = meses (HIST_MONTHS) */
 
 static void on_back(lv_event_t *e) {
 	(void)e;
 	ui_show_well(DataHub::instance().selectedWell());
+}
+
+static void on_toggle(lv_event_t *e) {
+	(void)e;
+	showMonths = !showMonths;
+	lv_chart_set_point_count(chart, showMonths ? HIST_MONTHS : HIST_DAYS);
+	lv_label_set_text(lv_obj_get_child(btn_toggle, 0), showMonths ? "Ver dias" : "Ver meses");
+	screen_history_update();
 }
 
 lv_obj_t *screen_history_create() {
@@ -28,10 +39,18 @@ lv_obj_t *screen_history_create() {
 	lv_obj_set_style_text_color(lbl_title, COL_TEXT, 0);
 	lv_obj_align(lbl_title, LV_ALIGN_TOP_LEFT, 10, 8);
 
-	lv_obj_t *sub = lv_label_create(scr);
-	lv_label_set_text_fmt(sub, "Ultimos %d dias  (m3/dia)", HIST_DAYS);
-	lv_obj_add_style(sub, &st_title, 0);
-	lv_obj_align(sub, LV_ALIGN_TOP_LEFT, 10, 30);
+	lbl_sub = lv_label_create(scr);
+	lv_label_set_text_fmt(lbl_sub, "Ultimos %d dias  (m3/dia)", HIST_DAYS);
+	lv_obj_add_style(lbl_sub, &st_title, 0);
+	lv_obj_align(lbl_sub, LV_ALIGN_TOP_LEFT, 10, 30);
+
+	btn_toggle = lv_btn_create(scr);
+	lv_obj_set_size(btn_toggle, 90, 24);
+	lv_obj_align(btn_toggle, LV_ALIGN_TOP_RIGHT, -10, 26);
+	lv_obj_set_style_bg_color(btn_toggle, COL_TEAL, 0);
+	lv_obj_add_event_cb(btn_toggle, on_toggle, LV_EVENT_CLICKED, nullptr);
+	lv_obj_center(lv_label_create(btn_toggle));
+	lv_label_set_text(lv_obj_get_child(btn_toggle, 0), "Ver meses");
 
 	chart = lv_chart_create(scr);
 	lv_obj_set_size(chart, 296, 118);
@@ -74,13 +93,19 @@ void screen_history_update() {
 
 	lv_label_set_text_fmt(lbl_title, "Historico  -  %s", d.name);
 
+	const float *arr = showMonths ? d.histMonthM3 : d.histDayM3;
+	int          n   = showMonths ? HIST_MONTHS : HIST_DAYS;
+
+	if (showMonths) lv_label_set_text_fmt(lbl_sub, "Ultimos %d meses  (m3/mes)", HIST_MONTHS);
+	else            lv_label_set_text_fmt(lbl_sub, "Ultimos %d dias  (m3/dia)", HIST_DAYS);
+
 	float mx = 1.0f;
-	for (int i = 0; i < HIST_DAYS; i++)
-		if (d.histDayM3[i] > mx) mx = d.histDayM3[i];
+	for (int i = 0; i < n; i++)
+		if (arr[i] > mx) mx = arr[i];
 	lv_chart_set_range(chart, LV_CHART_AXIS_PRIMARY_Y, 0, (lv_coord_t)(mx * 1.15f));
 
-	for (int i = 0; i < HIST_DAYS; i++)
-		lv_chart_set_value_by_id(chart, ser, i, (lv_coord_t)d.histDayM3[i]);
+	for (int i = 0; i < n; i++)
+		lv_chart_set_value_by_id(chart, ser, i, (lv_coord_t)arr[i]);
 	lv_chart_refresh(chart);
 
 	char b[24];

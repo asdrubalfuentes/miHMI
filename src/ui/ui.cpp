@@ -10,7 +10,6 @@ static lv_obj_t *s_well     = nullptr;
 static lv_obj_t *s_actions  = nullptr;
 static lv_obj_t *s_history  = nullptr;
 static lv_obj_t *s_settings = nullptr;
-static lv_obj_t *s_scale    = nullptr;
 static lv_obj_t *s_pin      = nullptr;
 static lv_obj_t *s_config   = nullptr;
 static lv_obj_t *s_help     = nullptr;
@@ -56,12 +55,6 @@ void ui_show_settings() {
 	lv_scr_load_anim(s_settings, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
 }
 
-void ui_show_scale() {
-	if (!s_scale) s_scale = screen_scale_create();
-	screen_scale_enter();
-	lv_scr_load_anim(s_scale, LV_SCR_LOAD_ANIM_MOVE_LEFT, 250, 0, false);
-}
-
 void ui_show_pin(void (*on_ok)()) {
 	if (!s_pin) s_pin = screen_pin_create();
 	screen_pin_prepare(on_ok);
@@ -86,19 +79,17 @@ void ui_tick() {
 	else if (act == s_actions)  screen_actions_update();
 	else if (act == s_history)  screen_history_update();
 	else if (act == s_settings) screen_settings_update();
-	else if (act == s_scale)    screen_scale_update();
 }
 
 void ui_rebuild_all() {
 	lv_obj_t *old = lv_scr_act();
 
-	enum { W_WELLS, W_WELL, W_ACTIONS, W_HISTORY, W_SETTINGS, W_SCALE,
+	enum { W_WELLS, W_WELL, W_ACTIONS, W_HISTORY, W_SETTINGS,
 	       W_PIN, W_CONFIG, W_HELP, W_SPLASH } which = W_WELLS;
 	if      (old == s_well)     which = W_WELL;
 	else if (old == s_actions)  which = W_ACTIONS;
 	else if (old == s_history)  which = W_HISTORY;
 	else if (old == s_settings) which = W_SETTINGS;
-	else if (old == s_scale)    which = W_SCALE;
 	else if (old == s_pin)      which = W_PIN;
 	else if (old == s_config)   which = W_CONFIG;
 	else if (old == s_help)     which = W_HELP;
@@ -106,9 +97,9 @@ void ui_rebuild_all() {
 
 	/* invalida punteros y borra todo lo creado salvo la pantalla activa */
 	lv_obj_t *all[] = { s_wells, s_well, s_actions, s_history, s_settings,
-	                    s_scale, s_pin, s_config, s_help, s_splash };
+	                    s_pin, s_config, s_help, s_splash };
 	s_wells = s_well = s_actions = s_history = s_settings = nullptr;
-	s_scale = s_pin = s_config = s_help = s_splash = nullptr;
+	s_pin = s_config = s_help = s_splash = nullptr;
 	for (lv_obj_t *o : all)
 		if (o && o != old) lv_obj_del(o);
 
@@ -120,7 +111,6 @@ void ui_rebuild_all() {
 		case W_ACTIONS:  s_actions  = ns = screen_actions_create(); screen_actions_update();  break;
 		case W_HISTORY:  s_history  = ns = screen_history_create(); screen_history_update();  break;
 		case W_SETTINGS: s_settings = ns = screen_settings_create();                          break;
-		case W_SCALE:    s_scale    = ns = screen_scale_create();   screen_scale_enter();     break;
 		case W_CONFIG:   s_config   = ns = screen_config_create();  screen_config_enter();    break;
 		case W_HELP:     s_help     = ns = screen_help_create();                              break;
 		case W_SPLASH:   s_splash   = ns = screen_splash_create();                            break;

@@ -239,31 +239,16 @@ void screen_well_update() {
 
 	/* LVGL no formatea %f: usar snprintf de libc y set_text */
 	char b[28];
-	DataSource *pri = hub.primary();
-	uint8_t     si  = hub.selectedWell();
 
 	/* --- nivel: % grande (arco) + metros de profundidad debajo ---
-	   Rango de profundidad: la escala del PLC si esta leida; si no, el fallback
-	   configurable levelMaxM (0..levelMaxM m). */
-	bool  hasScale = pri && pri->scaleValid(si);
-	float lo, hi;
-	if (hasScale) {
-		StationScale sc = pri->getScale(si);
-		lo = sc.level.engMin / 100.0f;
-		hi = sc.level.engMax / 100.0f;
-	} else {
-		lo = 0.0f;
-		hi = (float)hmicfg::get().levelMaxM;
-	}
-
-	float pct, depthM;
-	if (d.levelUnit == 0) {                         /* el PLC manda % */
-		pct    = d.levelEng;
-		depthM = lo + (pct / 100.0f) * (hi - lo);
-	} else {                                        /* el PLC manda m / cm / mca */
-		depthM = d.levelEng * (d.levelUnit == 2 ? 0.01f : 1.0f);
-		pct    = (hi > lo) ? (depthM - lo) / (hi - lo) * 100.0f : d.levelEng;
-	}
+	   Cambio de rumbo 2026-09: el nivel llega SIEMPRE ya escalado en metros
+	 * (lo calibra el nodo remoto en su propio portal, no el HMI) -- ya no hay
+	 * pagina de rangos ni bloque de escala que consultar aqui. La barra 0-100%
+	 * es solo una referencia visual contra la profundidad de fondo de escala
+	 * configurada (Ajustes, "profundidad a fondo de escala"). */
+	float depthM = d.levelEng;   /* ya viene en metros, MB_LEVEL_SCALE ya aplicado */
+	float hi = (float)hmicfg::get().levelMaxM;
+	float pct = (hi > 0) ? (depthM / hi) * 100.0f : 0.0f;
 	if (pct < 0) pct = 0; else if (pct > 100) pct = 100;
 
 	lv_arc_set_value(arc_level, (int)lroundf(pct));

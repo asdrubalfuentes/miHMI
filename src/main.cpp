@@ -21,6 +21,7 @@
 #include "ui/ui.h"
 #include "ui/theme.h"
 #include "data/data_hub.h"
+#include "data/hist_log.h"
 #include "data/hmi_config.h"
 #include "data/mock_source.h"
 #include "data/modbus_tcp_source.h"
@@ -63,6 +64,7 @@ void setup() {
 	   la interfaz igual arranca y el fallo se ve, en vez de quedar a oscuras. */
 	panic_screen_stage("config/SD");
 	hmicfg::begin(panic_safe_mode());
+	histlog::begin();            /* historico de dia/mes desde microSD (/hist.json) */
 	display_set_invert(hmicfg::get().dispInvert);   /* inversion de color del panel */
 
 	/* Adaptacion de pantalla al ambiente (LDR).  Parametros por consola serie. */

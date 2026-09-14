@@ -26,7 +26,6 @@ void ui_show_well(uint8_t idx);   /* fija el pozo seleccionado y abre el detalle
 void ui_show_actions();           /* acciones de mando del pozo seleccionado */
 void ui_show_history();
 void ui_show_settings();
-void ui_show_scale();
 void ui_show_config();             /* configuracion de administrador (tras PIN) */
 void ui_show_pin(void (*on_ok)()); /* puerta de PIN; on_ok se ejecuta al acertar */
 void ui_show_help();

@@ -27,8 +27,5 @@ void      screen_pin_prepare(void (*on_ok)());
 lv_obj_t *screen_config_create();
 void      screen_config_enter();
 
-lv_obj_t *screen_scale_create();
-void      screen_scale_update();
-void      screen_scale_enter();
 
 lv_obj_t *screen_help_create();

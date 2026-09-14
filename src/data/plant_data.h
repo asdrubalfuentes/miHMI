@@ -57,6 +57,7 @@ struct WellData {
 	float totalDayM3    = 0.0f;
 	float totalMonthM3  = 0.0f;
 	float histDayM3[HIST_DAYS] = {0};
+	float histMonthM3[HIST_MONTHS] = {0};
 	uint8_t levelUnit   = 0;      /* codigo MAPA B hb+28 (0=%,1=m,2=cm,3=mca)       */
 	uint8_t flowUnit    = 0;      /* codigo MAPA B hb+29 (0=L/s,1=m3/h,2=L/min,3=GPM)*/
 

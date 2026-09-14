@@ -1,4 +1,5 @@
 #include "data_hub.h"
+#include "hist_log.h"
 
 DataHub &DataHub::instance() {
 	static DataHub inst;
@@ -57,4 +58,5 @@ void DataHub::tick() {
 	}
 
 	data_ = active_->latest;
+	histlog::tick(data_);   /* cierre de dia/mes (hora local) + historico persistido */
 }

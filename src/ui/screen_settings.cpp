@@ -16,7 +16,6 @@ static lv_obj_t *lbl_origin;
 static lv_obj_t *lbl_counters;
 
 static void on_back(lv_event_t *e) { (void)e; ui_show_wells(); }
-static void on_scale(lv_event_t *e) { (void)e; ui_show_scale(); }
 static void on_config(lv_event_t *e) { (void)e; ui_show_pin(ui_show_config); }
 
 static void on_recal(lv_event_t *e) {
@@ -94,17 +93,11 @@ lv_obj_t *screen_settings_create() {
 	lv_obj_center(lv_label_create(bcfg));
 	lv_label_set_text(lv_obj_get_child(bcfg, 0), "Configuracion");
 
-	lv_obj_t *bscale = lv_btn_create(scr);
-	lv_obj_set_size(bscale, 92, 40);
-	lv_obj_align(bscale, LV_ALIGN_TOP_LEFT, 138, 172);
-	lv_obj_set_style_bg_color(bscale, COL_TEAL, 0);
-	lv_obj_add_event_cb(bscale, on_scale, LV_EVENT_CLICKED, nullptr);
-	lv_obj_center(lv_label_create(bscale));
-	lv_label_set_text(lv_obj_get_child(bscale, 0), "Escala");
-
+	/* El boton "Escala" se quito: la calibracion ahora vive en el portal del
+	 * nodo remoto (cambio de rumbo 2026-09), no en el HMI. */
 	lv_obj_t *brecal = lv_btn_create(scr);
 	lv_obj_set_size(brecal, 84, 40);
-	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 236, 172);
+	lv_obj_align(brecal, LV_ALIGN_TOP_LEFT, 138, 172);
 	lv_obj_set_style_bg_color(brecal, COL_TEAL_D, 0);
 	lv_obj_add_event_cb(brecal, on_recal, LV_EVENT_CLICKED, nullptr);
 	lv_obj_center(lv_label_create(brecal));
