@@ -3,7 +3,7 @@
 Versión del canal OTA: `APP_VERSION` (`config.h`), formato `MAJOR.MINOR.PATCH`.
 El CI la sobreescribe desde el tag `vX.Y.Z` (`FW_VERSION_OVERRIDE`).
 
-## Sin publicar — cambio de rumbo: escalado en el nodo, no en el HMI
+## 0.5.0 — cambio de rumbo: escalado en el nodo, no en el HMI
 
 - Se elimina la página de rangos (`screen_scale`) por completo — la
   calibración de escala vive ahora en el portal del `nodeIO` remoto.
