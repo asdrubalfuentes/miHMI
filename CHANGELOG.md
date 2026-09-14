@@ -3,6 +3,21 @@
 Versión del canal OTA: `APP_VERSION` (`config.h`), formato `MAJOR.MINOR.PATCH`.
 El CI la sobreescribe desde el tag `vX.Y.Z` (`FW_VERSION_OVERRIDE`).
 
+## Sin publicar — cambio de rumbo: escalado en el nodo, no en el HMI
+
+- Se elimina la página de rangos (`screen_scale`) por completo — la
+  calibración de escala vive ahora en el portal del `nodeIO` remoto.
+  El HMI ya no configura nada de eso; el nivel se muestra siempre en
+  metros, tal cual llega ya escalado.
+- Histórico de **6 meses** (`HIST_MONTHS`), además de los 14 días que
+  ya existían — ambos persistidos en `/hist.json` (microSD), separado
+  de la configuración. `hist_log` detecta el cierre de día/mes con la
+  hora local del propio HMI y apila el valor de cierre correcto (antes
+  de que el nodo/PLC lo reseteen).
+- `screen_history`: botón para alternar el gráfico entre días y meses.
+- `MB_ACCUM_SCALE` ×10 → ×1000: los acumulados ya vienen del nodo (vía
+  gateway + LOGO!) en esa escala, sin conversión intermedia.
+
 ## 0.4.1 — respaldo de calibración de escala
 
 - El LOGO! 9 no retiene el bloque de escala (`hb+20..31`) tras un reinicio (sin
